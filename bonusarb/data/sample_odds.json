@@ -1,0 +1,494 @@
+{
+  "sports": [
+    {
+      "key": "icehockey_nhl",
+      "group": "Ice Hockey",
+      "title": "NHL",
+      "description": "US Ice Hockey",
+      "active": true,
+      "has_outrights": false
+    },
+    {
+      "key": "americanfootball_nfl",
+      "group": "American Football",
+      "title": "NFL",
+      "description": "US Football",
+      "active": true,
+      "has_outrights": false
+    },
+    {
+      "key": "baseball_mlb",
+      "group": "Baseball",
+      "title": "MLB",
+      "description": "Major League Baseball",
+      "active": true,
+      "has_outrights": false
+    },
+    {
+      "key": "basketball_nba",
+      "group": "Basketball",
+      "title": "NBA",
+      "description": "US Basketball",
+      "active": true,
+      "has_outrights": false
+    }
+  ],
+  "odds": {
+    "icehockey_nhl|h2h,spreads,totals|us|fanduel,draftkings|decimal": [
+      {
+        "id": "nhl-1",
+        "sport_key": "icehockey_nhl",
+        "sport_title": "NHL",
+        "commence_time": "2026-07-03T23:00:00Z",
+        "home_team": "Boston Bruins",
+        "away_team": "Toronto Maple Leafs",
+        "bookmakers": [
+          {
+            "key": "fanduel",
+            "title": "FanDuel",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {"name": "Boston Bruins", "price": 1.95},
+                  {"name": "Toronto Maple Leafs", "price": 1.95}
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {"name": "Boston Bruins", "price": 1.91, "point": -1.5},
+                  {"name": "Toronto Maple Leafs", "price": 1.91, "point": 1.5}
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {"name": "Over", "price": 1.91, "point": 5.5},
+                  {"name": "Under", "price": 1.91, "point": 5.5}
+                ]
+              }
+            ]
+          },
+          {
+            "key": "draftkings",
+            "title": "DraftKings",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {"name": "Boston Bruins", "price": 1.98},
+                  {"name": "Toronto Maple Leafs", "price": 1.92}
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {"name": "Boston Bruins", "price": 1.89, "point": -1.5},
+                  {"name": "Toronto Maple Leafs", "price": 1.93, "point": 1.5}
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {"name": "Over", "price": 1.9, "point": 5.5},
+                  {"name": "Under", "price": 1.92, "point": 5.5}
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "nhl-2",
+        "sport_key": "icehockey_nhl",
+        "sport_title": "NHL",
+        "commence_time": "2026-07-04T01:00:00Z",
+        "home_team": "Colorado Avalanche",
+        "away_team": "Dallas Stars",
+        "bookmakers": [
+          {
+            "key": "fanduel",
+            "title": "FanDuel",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {"name": "Colorado Avalanche", "price": 2.1},
+                  {"name": "Dallas Stars", "price": 1.8}
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {"name": "Colorado Avalanche", "price": 1.91, "point": 1.5},
+                  {"name": "Dallas Stars", "price": 1.91, "point": -1.5}
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {"name": "Over", "price": 1.91, "point": 6.5},
+                  {"name": "Under", "price": 1.91, "point": 6.5}
+                ]
+              }
+            ]
+          },
+          {
+            "key": "draftkings",
+            "title": "DraftKings",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {"name": "Colorado Avalanche", "price": 2.05},
+                  {"name": "Dallas Stars", "price": 1.85}
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {"name": "Colorado Avalanche", "price": 1.93, "point": 1.5},
+                  {"name": "Dallas Stars", "price": 1.89, "point": -1.5}
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {"name": "Over", "price": 1.92, "point": 6.5},
+                  {"name": "Under", "price": 1.9, "point": 6.5}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "americanfootball_nfl|h2h,spreads,totals|us|fanduel,draftkings|decimal": [
+      {
+        "id": "nfl-1",
+        "sport_key": "americanfootball_nfl",
+        "sport_title": "NFL",
+        "commence_time": "2026-09-10T17:00:00Z",
+        "home_team": "Kansas City Chiefs",
+        "away_team": "Buffalo Bills",
+        "bookmakers": [
+          {
+            "key": "fanduel",
+            "title": "FanDuel",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {"name": "Kansas City Chiefs", "price": 1.85},
+                  {"name": "Buffalo Bills", "price": 2.05}
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {"name": "Kansas City Chiefs", "price": 1.91, "point": -3.5},
+                  {"name": "Buffalo Bills", "price": 1.91, "point": 3.5}
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {"name": "Over", "price": 1.91, "point": 51.5},
+                  {"name": "Under", "price": 1.91, "point": 51.5}
+                ]
+              }
+            ]
+          },
+          {
+            "key": "draftkings",
+            "title": "DraftKings",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {"name": "Kansas City Chiefs", "price": 1.88},
+                  {"name": "Buffalo Bills", "price": 2.0}
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {"name": "Kansas City Chiefs", "price": 1.89, "point": -3.5},
+                  {"name": "Buffalo Bills", "price": 1.93, "point": 3.5}
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {"name": "Over", "price": 1.9, "point": 51.5},
+                  {"name": "Under", "price": 1.92, "point": 51.5}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "baseball_mlb|h2h,spreads,totals|us|fanduel,draftkings|decimal": [
+      {
+        "id": "mlb-1",
+        "sport_key": "baseball_mlb",
+        "sport_title": "MLB",
+        "commence_time": "2026-07-03T23:10:00Z",
+        "home_team": "Cincinnati Reds",
+        "away_team": "Baltimore Orioles",
+        "bookmakers": [
+          {
+            "key": "fanduel",
+            "title": "FanDuel",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {"name": "Cincinnati Reds", "price": 1.95},
+                  {"name": "Baltimore Orioles", "price": 1.95}
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {"name": "Cincinnati Reds", "price": 1.91, "point": -1.5},
+                  {"name": "Baltimore Orioles", "price": 1.91, "point": 1.5}
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {"name": "Over", "price": 1.91, "point": 8.5},
+                  {"name": "Under", "price": 1.91, "point": 8.5}
+                ]
+              }
+            ]
+          },
+          {
+            "key": "draftkings",
+            "title": "DraftKings",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {"name": "Cincinnati Reds", "price": 1.92},
+                  {"name": "Baltimore Orioles", "price": 1.98}
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {"name": "Cincinnati Reds", "price": 1.89, "point": -1.5},
+                  {"name": "Baltimore Orioles", "price": 1.93, "point": 1.5}
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {"name": "Over", "price": 1.9, "point": 8.5},
+                  {"name": "Under", "price": 1.92, "point": 8.5}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "basketball_nba|h2h,spreads,totals|us|fanduel,draftkings|decimal": [
+      {
+        "id": "nba-1",
+        "sport_key": "basketball_nba",
+        "sport_title": "NBA",
+        "commence_time": "2026-07-03T00:00:00Z",
+        "home_team": "Boston Celtics",
+        "away_team": "Los Angeles Lakers",
+        "bookmakers": [
+          {
+            "key": "fanduel",
+            "title": "FanDuel",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {"name": "Boston Celtics", "price": 1.85},
+                  {"name": "Los Angeles Lakers", "price": 2.1}
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {"name": "Boston Celtics", "price": 1.91, "point": -2.5},
+                  {"name": "Los Angeles Lakers", "price": 1.91, "point": 2.5}
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {"name": "Over", "price": 1.91, "point": 221.5},
+                  {"name": "Under", "price": 1.91, "point": 221.5}
+                ]
+              }
+            ]
+          },
+          {
+            "key": "draftkings",
+            "title": "DraftKings",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {"name": "Boston Celtics", "price": 1.95},
+                  {"name": "Los Angeles Lakers", "price": 2.0}
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {"name": "Boston Celtics", "price": 1.89, "point": -2.5},
+                  {"name": "Los Angeles Lakers", "price": 1.93, "point": 2.5}
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {"name": "Over", "price": 1.9, "point": 221.5},
+                  {"name": "Under", "price": 1.92, "point": 221.5}
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "nba-2",
+        "sport_key": "basketball_nba",
+        "sport_title": "NBA",
+        "commence_time": "2026-07-03T06:00:00Z",
+        "home_team": "Phoenix Suns",
+        "away_team": "Golden State Warriors",
+        "bookmakers": [
+          {
+            "key": "fanduel",
+            "title": "FanDuel",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {"name": "Phoenix Suns", "price": 1.9},
+                  {"name": "Golden State Warriors", "price": 2.05}
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {"name": "Phoenix Suns", "price": 1.91, "point": -1.5},
+                  {"name": "Golden State Warriors", "price": 1.91, "point": 1.5}
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {"name": "Over", "price": 1.91, "point": 228.5},
+                  {"name": "Under", "price": 1.91, "point": 228.5}
+                ]
+              }
+            ]
+          },
+          {
+            "key": "draftkings",
+            "title": "DraftKings",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {"name": "Phoenix Suns", "price": 2.0},
+                  {"name": "Golden State Warriors", "price": 1.95}
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {"name": "Phoenix Suns", "price": 1.89, "point": -1.5},
+                  {"name": "Golden State Warriors", "price": 1.93, "point": 1.5}
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {"name": "Over", "price": 1.9, "point": 228.5},
+                  {"name": "Under", "price": 1.92, "point": 228.5}
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "nba-3",
+        "sport_key": "basketball_nba",
+        "sport_title": "NBA",
+        "commence_time": "2026-07-03T11:00:00Z",
+        "home_team": "Miami Heat",
+        "away_team": "New York Knicks",
+        "bookmakers": [
+          {
+            "key": "fanduel",
+            "title": "FanDuel",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {"name": "Miami Heat", "price": 1.88},
+                  {"name": "New York Knicks", "price": 2.08}
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {"name": "Miami Heat", "price": 1.91, "point": -1.5},
+                  {"name": "New York Knicks", "price": 1.91, "point": 1.5}
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {"name": "Over", "price": 1.91, "point": 215.5},
+                  {"name": "Under", "price": 1.91, "point": 215.5}
+                ]
+              }
+            ]
+          },
+          {
+            "key": "draftkings",
+            "title": "DraftKings",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {"name": "Miami Heat", "price": 1.98},
+                  {"name": "New York Knicks", "price": 1.98}
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {"name": "Miami Heat", "price": 1.89, "point": -1.5},
+                  {"name": "New York Knicks", "price": 1.93, "point": 1.5}
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {"name": "Over", "price": 1.9, "point": 215.5},
+                  {"name": "Under", "price": 1.92, "point": 215.5}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
