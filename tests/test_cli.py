@@ -5,7 +5,7 @@ import argparse
 from bonusarb.cli import _should_use_interactive
 from bonusarb.config import available_hedge_books
 from bonusarb.odds_utils import parse_market_keys
-from bonusarb.prompts import prompt_numbered_choice, prompt_percent_step
+from bonusarb.prompts import parse_token_book, prompt_numbered_choice, prompt_percent_step
 
 
 def test_should_use_interactive_by_default():
@@ -45,6 +45,35 @@ def test_prompt_percent_step_accepts_zero_boost(monkeypatch):
     assert value == 0.0
 
 
+def test_parse_token_book_accepts_thescore_aliases():
+    assert parse_token_book("espnbet") == "espnbet"
+    assert parse_token_book("thescore") == "espnbet"
+    assert parse_token_book("thescorebet") == "espnbet"
+    assert parse_token_book("the_score") == "espnbet"
+
+
 def test_available_hedge_books_excludes_token_book_and_adds_polymarket():
-    assert available_hedge_books("fanduel") == ("draftkings", "polymarket")
-    assert available_hedge_books("draftkings") == ("fanduel", "polymarket")
+    assert available_hedge_books("fanduel") == (
+        "draftkings",
+        "betmgm",
+        "espnbet",
+        "polymarket",
+    )
+    assert available_hedge_books("draftkings") == (
+        "fanduel",
+        "betmgm",
+        "espnbet",
+        "polymarket",
+    )
+    assert available_hedge_books("betmgm") == (
+        "fanduel",
+        "draftkings",
+        "espnbet",
+        "polymarket",
+    )
+    assert available_hedge_books("espnbet") == (
+        "fanduel",
+        "draftkings",
+        "betmgm",
+        "polymarket",
+    )

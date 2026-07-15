@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import itertools
+import math
 
 from bonusarb.arb.sequential import solve_sequential_hedge, verify_plan
 from bonusarb.models import BookmakerKey, Game, HedgePlan, Leg, TokenConstraint
 from bonusarb.odds_utils import combined_decimal_odds, enumerate_game_legs, parse_market_keys
-from bonusarb.schedule import is_schedule_feasible
+from bonusarb.schedule import combo_has_unique_matchups, is_schedule_feasible
 from bonusarb.tokens import token_constraints_satisfied, token_payoff
 
 
@@ -16,6 +17,8 @@ def enumerate_candidate_legs(
     token_book: BookmakerKey,
     hedge_books: tuple[BookmakerKey, ...],
     market_keys: str | tuple[str, ...] = "h2h",
+    *,
+    slug_by_game_id: dict[str, str] | None = None,
 ) -> list[Leg]:
     if isinstance(market_keys, str):
         keys = parse_market_keys(market_keys)
@@ -24,7 +27,9 @@ def enumerate_candidate_legs(
 
     candidates: list[Leg] = []
     for game in games:
-        candidates.extend(enumerate_game_legs(game, token_book, hedge_books, keys))
+        candidates.extend(
+            enumerate_game_legs(game, token_book, hedge_books, keys, slug_by_game_id=slug_by_game_id)
+        )
     return candidates
 
 
@@ -51,7 +56,17 @@ def _candidate_stakes(token: TokenConstraint, bankroll: float | None) -> list[fl
     if bankroll_binds and bankroll is not None and bankroll > 0:
         stakes.append(bankroll)
 
-    unique = sorted({round(max(1.0, stake), 2) for stake in stakes if stake > 0}, reverse=True)
+    # Floor to cents and never exceed max_stake. CAD→USD can leave a fractional
+    # max_stake (e.g. 21.167); rounding that up to 21.17 would then fail
+    # token_constraints_satisfied and wipe every plan.
+    unique = sorted(
+        {
+            min(math.floor(max(1.0, stake) * 100) / 100, token.max_stake)
+            for stake in stakes
+            if stake > 0
+        },
+        reverse=True,
+    )
     return unique
 
 
@@ -65,17 +80,21 @@ def find_best_plans(
     market_key: str = "h2h",
     max_results: int = 5,
     optimize_for: str = "profit",
+    *,
+    slug_by_game_id: dict[str, str] | None = None,
 ) -> list[HedgePlan]:
-    candidates = enumerate_candidate_legs(games, token.token_book, hedge_books, market_key)
+    candidates = enumerate_candidate_legs(
+        games, token.token_book, hedge_books, market_key, slug_by_game_id=slug_by_game_id
+    )
     if not candidates:
         return []
 
     sport_key = games[0].sport_key if games else token.sport_key or ""
+    game_by_id = {game.id: game for game in games}
     plans: list[HedgePlan] = []
 
     for combo in itertools.combinations(candidates, leg_count):
-        game_ids = {leg.game_id for leg in combo}
-        if len(game_ids) != leg_count:
+        if not combo_has_unique_matchups(combo, game_by_id):
             continue
 
         feasible, _ = is_schedule_feasible(combo, sport_key, min_gap_minutes)
@@ -167,10 +186,11 @@ def find_best_ev_plans(
 ) -> list[HedgePlan]:
     candidates = enumerate_candidate_legs(games, token.token_book, hedge_books, market_key)
     sport_key = games[0].sport_key if games else token.sport_key or ""
+    game_by_id = {game.id: game for game in games}
     plans: list[HedgePlan] = []
 
     for combo in itertools.combinations(candidates, leg_count):
-        if len({leg.game_id for leg in combo}) != leg_count:
+        if not combo_has_unique_matchups(combo, game_by_id):
             continue
         feasible, _ = is_schedule_feasible(combo, sport_key, min_gap_minutes)
         if not feasible:

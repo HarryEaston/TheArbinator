@@ -5,9 +5,11 @@ discovery/metadata and the public CLOB API (https://clob.polymarket.com) for
 live prices. No authentication is required for read endpoints.
 
 Polymarket prices are share prices in the range (0, 1). A share pays out 1 unit
-if the outcome wins, so buying a share at price ``p`` is equivalent to decimal
-odds of ``1 / p``. We convert the buy price of each outcome into decimal odds
-for the existing hedge solver.
+if the outcome wins. Sports taker orders pay a fee at match time
+(``fee = shares × feeRate × p × (1 − p)``), so hedge odds use the all-in
+effective price ``p_eff = p × (1 + feeRate × (1 − p))`` and decimal odds
+``1 / p_eff``. Raw CLOB prices are still used for order limits and resolution
+watching.
 
 Sports fixtures are split across multiple Gamma events that share a ``gameId``.
 The main event slug is used to discover sibling events (e.g. ``*-more-markets``),
@@ -26,6 +28,7 @@ from typing import Any
 
 import requests
 
+from bonusarb.config import POLYMARKET_SPORTS_TAKER_FEE_RATE
 from bonusarb.oddsapi.cache import OddsCache
 
 
@@ -37,11 +40,27 @@ class PolymarketError(RuntimeError):
     pass
 
 
-def share_price_to_decimal_odds(price: float) -> float:
-    """Convert a Polymarket share price (0, 1) to decimal odds (>= 1)."""
+def effective_taker_share_price(
+    price: float,
+    *,
+    fee_rate: float | None = None,
+) -> float:
+    """All-in taker buy price including sports taker fee."""
     if not 0.0 < price < 1.0:
         raise ValueError(f"Polymarket share price must be in (0, 1), got {price}")
-    return 1.0 / price
+    rate = POLYMARKET_SPORTS_TAKER_FEE_RATE if fee_rate is None else fee_rate
+    if rate <= 0.0:
+        return price
+    return price * (1.0 + rate * (1.0 - price))
+
+
+def share_price_to_decimal_odds(
+    price: float,
+    *,
+    fee_rate: float | None = None,
+) -> float:
+    """Convert a Polymarket share price (0, 1) to post-fee taker decimal odds."""
+    return 1.0 / effective_taker_share_price(price, fee_rate=fee_rate)
 
 
 def _parse_stringified_array(value: Any) -> list[Any]:
@@ -169,6 +188,7 @@ class PolymarketClient:
             raw_markets,
             teams,
             allow_fetch=allow_fetch,
+            force_fetch=force_fetch,
         )
         if not parsed:
             return None
@@ -218,7 +238,7 @@ class PolymarketClient:
         if len(outcomes) != 2 or len(clob_token_ids) != 2:
             return None
 
-        prices = self._resolve_prices(market, clob_token_ids, allow_fetch=allow_fetch)
+        prices = self._resolve_prices(market, clob_token_ids, allow_fetch=allow_fetch, force_fetch=force_fetch)
         if prices is None:
             return None
 
@@ -339,6 +359,7 @@ class PolymarketClient:
         teams: set[str],
         *,
         allow_fetch: bool,
+        force_fetch: bool = False,
     ) -> dict[str, tuple[PolymarketOutcomeOdds, ...]]:
         parsed: dict[str, tuple[PolymarketOutcomeOdds, ...]] = {}
         spread_sides: dict[tuple[str, float], PolymarketOutcomeOdds] = {}
@@ -350,17 +371,17 @@ class PolymarketClient:
 
             sports_type = market.get("sportsMarketType")
             if sports_type == "moneyline":
-                h2h = self._parse_binary_team_market(market, teams, allow_fetch=allow_fetch)
+                h2h = self._parse_binary_team_market(market, teams, allow_fetch=allow_fetch, force_fetch=force_fetch)
                 if h2h is not None:
                     parsed["h2h"] = h2h
                 continue
 
             if sports_type == "spreads":
-                self._collect_spread_sides(market, teams, spread_sides, allow_fetch=allow_fetch)
+                self._collect_spread_sides(market, teams, spread_sides, allow_fetch=allow_fetch, force_fetch=force_fetch)
                 continue
 
             if sports_type == "totals":
-                self._collect_total_sides(market, total_sides, allow_fetch=allow_fetch)
+                self._collect_total_sides(market, total_sides, allow_fetch=allow_fetch, force_fetch=force_fetch)
 
         if spread_sides:
             parsed["spreads"] = tuple(spread_sides[key] for key in sorted(spread_sides))
@@ -375,6 +396,7 @@ class PolymarketClient:
         teams: set[str],
         *,
         allow_fetch: bool,
+        force_fetch: bool = False,
     ) -> tuple[PolymarketOutcomeOdds, ...] | None:
         outcomes = _parse_stringified_array(market.get("outcomes"))
         clob_token_ids = _parse_stringified_array(market.get("clobTokenIds"))
@@ -383,7 +405,7 @@ class PolymarketClient:
         if set(outcomes) != teams:
             return None
 
-        prices = self._resolve_prices(market, clob_token_ids, allow_fetch=allow_fetch)
+        prices = self._resolve_prices(market, clob_token_ids, allow_fetch=allow_fetch, force_fetch=force_fetch)
         if prices is None:
             return None
 
@@ -407,6 +429,7 @@ class PolymarketClient:
         spread_sides: dict[tuple[str, float], PolymarketOutcomeOdds],
         *,
         allow_fetch: bool,
+        force_fetch: bool = False,
     ) -> None:
         line = market.get("line")
         if line is None:
@@ -423,7 +446,7 @@ class PolymarketClient:
         if set(outcomes) != teams:
             return
 
-        prices = self._resolve_prices(market, clob_token_ids, allow_fetch=allow_fetch)
+        prices = self._resolve_prices(market, clob_token_ids, allow_fetch=allow_fetch, force_fetch=force_fetch)
         if prices is None:
             return
 
@@ -464,6 +487,7 @@ class PolymarketClient:
         total_sides: dict[tuple[str, float], PolymarketOutcomeOdds],
         *,
         allow_fetch: bool,
+        force_fetch: bool = False,
     ) -> None:
         line = market.get("line")
         if line is None:
@@ -480,7 +504,7 @@ class PolymarketClient:
         if set(outcomes) != {"Over", "Under"}:
             return
 
-        prices = self._resolve_prices(market, clob_token_ids, allow_fetch=allow_fetch)
+        prices = self._resolve_prices(market, clob_token_ids, allow_fetch=allow_fetch, force_fetch=force_fetch)
         if prices is None:
             return
 
@@ -508,8 +532,9 @@ class PolymarketClient:
         clob_token_ids: list[str],
         *,
         allow_fetch: bool,
+        force_fetch: bool = False,
     ) -> list[float] | None:
-        live = self._live_prices(clob_token_ids, allow_fetch=allow_fetch)
+        live = self._live_prices(clob_token_ids, allow_fetch=allow_fetch, force_fetch=force_fetch)
         if live is not None:
             return live
         outcome_prices = _parse_stringified_array(market.get("outcomePrices"))
@@ -520,7 +545,42 @@ class PolymarketClient:
         except (TypeError, ValueError):
             return None
 
-    def _live_prices(self, token_ids: list[str], *, allow_fetch: bool) -> list[float] | None:
+    def get_token_price(
+        self,
+        token_id: str,
+        *,
+        side: str = "BUY",
+        allow_fetch: bool = True,
+        force_fetch: bool = True,
+    ) -> float | None:
+        """Fetch a single CLOB outcome token's top-of-book price (0, 1).
+
+        Used by the auto-hedger to re-price hedges and watch leg resolution.
+        Defaults to ``force_fetch=True`` because live monitoring needs fresh
+        quotes, not the 5-minute scan cache.
+        """
+        cache_key = f"price:{token_id}:{side}"
+        raw = self._request(
+            "price",
+            cache_key,
+            base_url=POLYMARKET_CLOB_BASE_URL,
+            path="/price",
+            params={"token_id": token_id, "side": side},
+            allow_fetch=allow_fetch,
+            force_fetch=force_fetch,
+            optional=True,
+        )
+        if not raw or "price" not in raw:
+            return None
+        try:
+            price = float(raw["price"])
+        except (TypeError, ValueError):
+            return None
+        if not 0.0 <= price <= 1.0:
+            return None
+        return price
+
+    def _live_prices(self, token_ids: list[str], *, allow_fetch: bool, force_fetch: bool = False) -> list[float] | None:
         prices: list[float] = []
         for token_id in token_ids:
             cache_key = f"price:{token_id}"
@@ -531,6 +591,7 @@ class PolymarketClient:
                 path="/price",
                 params={"token_id": token_id, "side": "BUY"},
                 allow_fetch=allow_fetch,
+                force_fetch=force_fetch,
                 optional=True,
             )
             if not raw or "price" not in raw:

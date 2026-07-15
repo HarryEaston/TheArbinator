@@ -4,9 +4,11 @@ from datetime import datetime
 
 from bonusarb.arb.optimizer import enumerate_candidate_legs, find_best_plans
 from bonusarb.models import BookmakerOdds, Game, Market, Outcome, TokenConstraint, TokenType
+from bonusarb.odds_utils import decimal_to_american
 from bonusarb.polymarket.client import (
     PolymarketClient,
     PolymarketMarket,
+    effective_taker_share_price,
     share_price_to_decimal_odds,
 )
 from bonusarb.polymarket.mappings import (
@@ -170,10 +172,17 @@ def _mapping(
     )
 
 
+def test_effective_taker_share_price():
+    assert round(effective_taker_share_price(0.0875), 6) == round(0.0875 * 1.045625, 6)
+    assert round(share_price_to_decimal_odds(0.0875), 2) == 10.93
+    assert decimal_to_american(share_price_to_decimal_odds(0.0875)) == 993
+
+
 def test_share_price_to_decimal_odds():
-    assert round(share_price_to_decimal_odds(0.25), 4) == 4.0
-    assert round(share_price_to_decimal_odds(0.5), 4) == 2.0
-    assert round(share_price_to_decimal_odds(0.8), 4) == 1.25
+    assert round(share_price_to_decimal_odds(0.25), 4) == round(1 / effective_taker_share_price(0.25), 4)
+    assert round(share_price_to_decimal_odds(0.5), 4) == round(1 / effective_taker_share_price(0.5), 4)
+    assert round(share_price_to_decimal_odds(0.8), 4) == round(1 / effective_taker_share_price(0.8), 4)
+    assert share_price_to_decimal_odds(0.5, fee_rate=0.0) == 2.0
 
 
 def test_share_price_rejects_out_of_range():
@@ -185,6 +194,8 @@ def test_share_price_rejects_out_of_range():
         share_price_to_decimal_odds(1.0)
     with pytest.raises(ValueError):
         share_price_to_decimal_odds(1.5)
+    with pytest.raises(ValueError):
+        effective_taker_share_price(0.0)
 
 
 def test_find_mapping_matches_by_teams_and_sport():
@@ -218,8 +229,12 @@ def test_polymarket_client_parses_stringified_gamma_fields_and_clob_prices():
     )
 
     assert market is not None
-    assert round(market.decimal_odds_for("Celtics"), 4) == round(1 / 0.65, 4)
-    assert round(market.decimal_odds_for("Lakers"), 4) == round(1 / 0.35, 4)
+    assert round(market.decimal_odds_for("Celtics"), 4) == round(
+        share_price_to_decimal_odds(0.65), 4
+    )
+    assert round(market.decimal_odds_for("Lakers"), 4) == round(
+        share_price_to_decimal_odds(0.35), 4
+    )
 
 
 def test_get_game_markets_parses_moneyline_spreads_and_totals():
@@ -235,7 +250,9 @@ def test_get_game_markets_parses_moneyline_spreads_and_totals():
     assert parsed is not None
     assert "h2h" in parsed.markets
     assert {o.name for o in parsed.markets["h2h"]} == {"Celtics", "Lakers"}
-    assert round(parsed.markets["h2h"][0].decimal_odds, 3) == round(1 / 0.6, 3)
+    assert round(parsed.markets["h2h"][0].decimal_odds, 3) == round(
+        share_price_to_decimal_odds(0.6), 3
+    )
 
     assert "spreads" in parsed.markets
     spread_points = {(o.name, o.point) for o in parsed.markets["spreads"]}
@@ -263,6 +280,7 @@ def test_merge_attaches_polymarket_hedge_odds():
     h2h = polymarket.markets["h2h"]
     assert {o.name for o in h2h.outcomes} == {"Celtics", "Lakers"}
     assert any("liquidity" in w.lower() for w in warnings)
+    assert any("fee" in w.lower() for w in warnings)
 
 
 def test_merge_uses_unverified_mapping_with_warning():

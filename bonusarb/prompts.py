@@ -12,6 +12,8 @@ from bonusarb.models import BookmakerKey, TOKEN_BOOKS
 BOOK_LABELS: dict[str, str] = {
     "fanduel": "FanDuel",
     "draftkings": "DraftKings",
+    "betmgm": "BetMGM",
+    "espnbet": "theScore Bet",
     "polymarket": "Polymarket",
 }
 
@@ -213,6 +215,13 @@ def prompt_numbered_choice(
 
 
 def parse_token_book(value: str) -> BookmakerKey:
-    if value not in TOKEN_BOOKS:
+    aliases = {
+        "thescore": "espnbet",
+        "thescorebet": "espnbet",
+        "the_score": "espnbet",
+        "score": "espnbet",
+    }
+    normalized = aliases.get(value.lower().replace(" ", ""), value)
+    if normalized not in TOKEN_BOOKS:
         raise ValueError(f"Unsupported token book: {value}")
-    return value  # type: ignore[return-value]
+    return normalized  # type: ignore[return-value]

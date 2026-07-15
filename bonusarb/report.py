@@ -6,7 +6,12 @@ from rich.console import Console, Group
 from rich.panel import Panel
 from rich.table import Table
 
-from bonusarb.display import market_label
+from bonusarb.display import format_display_time, format_event_cell, market_label
+from bonusarb.fx import (
+    format_hedge_stake,
+    format_sportsbook_amount,
+    format_usd_amount,
+)
 from bonusarb.models import HedgePlan, QuotaInfo, TokenConstraint, TokenType
 from bonusarb.odds_utils import decimal_to_american, leg_selection_display
 from bonusarb.tokens import effective_combined_odds
@@ -14,6 +19,8 @@ from bonusarb.tokens import effective_combined_odds
 BOOK_LABELS = {
     "fanduel": "FanDuel",
     "draftkings": "DraftKings",
+    "betmgm": "BetMGM",
+    "espnbet": "theScore Bet",
     "polymarket": "Polymarket",
 }
 
@@ -25,29 +32,37 @@ def render_report(
     *,
     ev_plans: list[HedgePlan] | None = None,
     warnings: list[str] | None = None,
+    cad_rate: float | None = None,
 ) -> None:
     console = Console()
     console.print()
-    console.print(_token_panel(token, quota, warnings or []))
+    console.print(_token_panel(token, quota, warnings or [], cad_rate=cad_rate))
 
     if not plans:
         console.print("[yellow]No guaranteed-profit plans found for the current settings.[/yellow]")
         if ev_plans:
             console.print("[cyan]Best positive expected-value alternatives:[/cyan]")
             for index, plan in enumerate(ev_plans, start=1):
-                console.print(_plan_panel(plan, title=f"+EV Option {index}"))
+                console.print(_plan_panel(plan, title=f"+EV Option {index}", cad_rate=cad_rate))
         return
 
     for index, plan in enumerate(plans, start=1):
-        console.print(_plan_panel(plan, title=f"Guaranteed Plan {index}"))
+        console.print(_plan_panel(plan, title=f"Guaranteed Plan {index}", cad_rate=cad_rate))
 
 
-def _token_panel(token: TokenConstraint, quota: QuotaInfo, warnings: list[str]) -> Panel:
+def _token_panel(
+    token: TokenConstraint,
+    quota: QuotaInfo,
+    warnings: list[str],
+    *,
+    cad_rate: float | None = None,
+) -> Panel:
+    stake_line = f"Max stake: {format_sportsbook_amount(token.max_stake, cad_rate)}"
     lines = [
         f"Token book: [bold]{token.token_book}[/bold]",
         f"Token type: [bold]{token.token_type.value}[/bold]",
         f"Min legs: {token.min_legs}",
-        f"Max stake: ${token.max_stake:.2f}",
+        stake_line,
     ]
     if token.token_type == TokenType.PROFIT_BOOST:
         lines.append(f"Boost: {token.boost_pct * 100:.0f}%")
@@ -65,7 +80,7 @@ def _token_panel(token: TokenConstraint, quota: QuotaInfo, warnings: list[str]) 
     return Panel("\n".join(lines), title="Bonus Token Arbitrage Finder", border_style="blue")
 
 
-def _plan_panel(plan: HedgePlan, title: str) -> Panel:
+def _plan_panel(plan: HedgePlan, title: str, *, cad_rate: float | None = None) -> Panel:
     parlay_table = Table(title=f"Place on {plan.token.token_book}", show_header=True, header_style="bold")
     parlay_table.add_column("#", justify="right")
     parlay_table.add_column("Event")
@@ -77,7 +92,7 @@ def _plan_panel(plan: HedgePlan, title: str) -> Panel:
     for index, leg in enumerate(plan.legs, start=1):
         parlay_table.add_row(
             str(index),
-            leg.event_label,
+            format_event_cell(leg.event_label, leg.commence_time),
             market_label(leg.market_key),
             leg_selection_display(leg),
             f"{leg.token_odds:.2f}",
@@ -95,7 +110,7 @@ def _plan_panel(plan: HedgePlan, title: str) -> Panel:
             f"{boosted_odds:.2f}",
             str(decimal_to_american(boosted_odds)),
         )
-    parlay_table.add_row("", "", "", "Stake", f"${plan.stake:.2f}", "")
+    parlay_table.add_row("", "", "", "Stake", format_sportsbook_amount(plan.stake, cad_rate), "")
 
     hedge_table = Table(title="Hedge Schedule", show_header=True, header_style="bold")
     hedge_table.add_column("#", justify="right")
@@ -118,14 +133,14 @@ def _plan_panel(plan: HedgePlan, title: str) -> Panel:
             step.selection,
             book_label,
             f"{step.odds:.2f}",
-            f"${step.stake:.2f}",
-            step.place_by.strftime("%Y-%m-%d %H:%M %Z"),
+            format_hedge_stake(step.stake, step.book, cad_rate),
+            format_display_time(step.place_by),
         )
 
     footer_lines = [
-        f"Parlay win profit after token: ${plan.effective_win_profit:.2f}",
-        f"Locked profit: [green]${plan.locked_profit:.2f}[/green]",
-        f"Max cash needed: ${plan.max_cash_needed:.2f}",
+        f"Parlay win profit after token: {format_sportsbook_amount(plan.effective_win_profit, cad_rate)}",
+        f"Locked profit: [green]{format_sportsbook_amount(plan.locked_profit, cad_rate)}[/green]",
+        f"Max cash needed: {_format_max_cash_needed(plan, cad_rate)}",
         f"ROI: {plan.roi * 100:.2f}%",
         f"Guaranteed: {'Yes' if plan.is_guaranteed else 'No'}",
     ]
@@ -134,3 +149,20 @@ def _plan_panel(plan: HedgePlan, title: str) -> Panel:
 
     content = Group(parlay_table, hedge_table, "\n".join(footer_lines))
     return Panel(content, title=title, border_style="green" if plan.is_guaranteed else "yellow")
+
+
+def _format_max_cash_needed(plan: HedgePlan, cad_rate: float | None) -> str:
+    if cad_rate is None or cad_rate <= 0:
+        return format_usd_amount(plan.max_cash_needed)
+    poly_usd = sum(step.stake for step in plan.hedge_steps if step.book == "polymarket")
+    sportsbook_hedges_usd = sum(
+        step.stake for step in plan.hedge_steps if step.book != "polymarket"
+    )
+    parts = [f"{format_sportsbook_amount(plan.stake_cost, cad_rate)} (sportsbook)"]
+    if poly_usd > 0:
+        parts.append(f"{format_usd_amount(poly_usd)} (Polymarket)")
+    if sportsbook_hedges_usd > 0:
+        parts.append(
+            f"{format_sportsbook_amount(sportsbook_hedges_usd, cad_rate)} (hedges)"
+        )
+    return " + ".join(parts)

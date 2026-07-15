@@ -9,7 +9,7 @@ from typing import Any
 
 import requests
 
-from bonusarb.models import BookmakerKey, BookmakerOdds, Game, Market, Outcome, QuotaInfo, TOKEN_BOOKS
+from bonusarb.models import BookmakerKey, BookmakerOdds, Game, Market, Outcome, QuotaInfo
 from bonusarb.odds_utils import normalize_price
 from bonusarb.oddsapi.cache import OddsCache
 from bonusarb.config import (
@@ -199,7 +199,7 @@ class OddsApiClient:
         bookmakers: dict[BookmakerKey, BookmakerOdds] = {}
         for raw_book in item.get("bookmakers", []):
             key = raw_book["key"]
-            if key not in ("fanduel", "draftkings"):
+            if key not in DEFAULT_BOOKMAKERS:
                 continue
             markets: dict[str, Market] = {}
             for raw_market in raw_book.get("markets", []):

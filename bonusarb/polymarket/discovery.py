@@ -26,12 +26,14 @@ from bonusarb.polymarket.client import (
 from bonusarb.polymarket.mappings import EventMapping, OutcomeMapping
 
 # The Odds API sport_key -> Polymarket Gamma sport tag id, for the supported
-# US leagues. Tag ids come from the Gamma ``/sports`` endpoint.
+# leagues. Tag ids come from the Gamma ``/sports`` and ``/tags`` endpoints.
 SPORT_TAG_IDS: dict[str, int] = {
     "baseball_mlb": 100381,
     "basketball_nba": 745,
+    "basketball_wnba": 100254,
     "icehockey_nhl": 899,
     "americanfootball_nfl": 450,
+    "mma_mixed_martial_arts": 279,
 }
 
 DEFAULT_MATCH_WINDOW_MINUTES = 720
@@ -47,6 +49,33 @@ class DiscoveredEvent:
 
 def _normalize(name: str) -> str:
     return "".join(ch.lower() for ch in name if ch.isalnum())
+
+
+def _pair_team_names(
+    game_teams: tuple[str, str],
+    polymarket_teams: tuple[str, str],
+) -> dict[str, str] | None:
+    """Map each sportsbook team name to its Polymarket outcome name.
+
+    Matches by normalized name (case/punctuation/diacritics-agnostic) so a
+    team like "Portland Fire" (Odds API) still pairs with "PortlandFire"
+    (Polymarket). Returns ``{game_team: polymarket_team}`` or ``None`` if
+    either team cannot be paired unambiguously.
+    """
+    pairs: dict[str, str] = {}
+    used: set[str] = set()
+    for game_team in game_teams:
+        game_norm = _normalize(game_team)
+        for poly_team in polymarket_teams:
+            if poly_team in used:
+                continue
+            if game_norm == _normalize(poly_team):
+                pairs[game_team] = poly_team
+                used.add(poly_team)
+                break
+    if len(pairs) != 2:
+        return None
+    return pairs
 
 
 def _parse_iso(value: str | None) -> datetime | None:
@@ -79,7 +108,8 @@ def _teams_from_title(title: str | None) -> list[str] | None:
 
 
 def _event_team_names(event: dict) -> list[str] | None:
-    # A 2-way moneyline (MLB/NBA/NHL/NFL) lists the team names directly.
+    # A 2-way moneyline (MLB/NBA/NHL/NFL, two fighters for UFC, or two
+    # players for tennis) lists the names directly.
     for market in event.get("markets") or []:
         if market.get("sportsMarketType") == "moneyline":
             outcomes = [str(o) for o in _parse_stringified_array(market.get("outcomes"))]
@@ -216,8 +246,17 @@ def discover_event_mappings(
         if match is None:
             continue
 
-        # Require exact raw team names so downstream hedge lookups line up.
-        if {match.home_team, match.away_team} != {game.home_team, game.away_team}:
+        # Pair sportsbook team names to Polymarket outcome names by normalized
+        # name, so formatting differences (e.g. "Portland Fire" vs
+        # "PortlandFire") don't drop an otherwise-valid match. The mapping's
+        # home/away stay as sportsbook names so find_mapping/matches_game still
+        # line up with the Game; outcomes carry the Polymarket names for the
+        # merge step to relabel hedge odds back to sportsbook names.
+        pairs = _pair_team_names(
+            (game.home_team, game.away_team),
+            (match.home_team, match.away_team),
+        )
+        if pairs is None:
             continue
 
         mappings.append(
@@ -228,8 +267,8 @@ def discover_event_mappings(
                 polymarket_event_slug=match.slug,
                 settlement="Auto-discovered from Polymarket; verify settlement rules match your bet.",
                 outcomes=(
-                    OutcomeMapping(game.home_team, game.home_team),
-                    OutcomeMapping(game.away_team, game.away_team),
+                    OutcomeMapping(polymarket_outcome=pairs[game.home_team], team=game.home_team),
+                    OutcomeMapping(polymarket_outcome=pairs[game.away_team], team=game.away_team),
                 ),
                 commence_time=game.commence_time,
                 verified=False,

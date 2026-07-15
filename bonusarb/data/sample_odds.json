@@ -31,10 +31,26 @@
       "description": "US Basketball",
       "active": true,
       "has_outrights": false
+    },
+    {
+      "key": "basketball_wnba",
+      "group": "Basketball",
+      "title": "WNBA",
+      "description": "US Basketball",
+      "active": true,
+      "has_outrights": false
+    },
+    {
+      "key": "mma_mixed_martial_arts",
+      "group": "Mixed Martial Arts",
+      "title": "UFC",
+      "description": "Mixed Martial Arts",
+      "active": true,
+      "has_outrights": false
     }
   ],
   "odds": {
-    "icehockey_nhl|h2h,spreads,totals|us|fanduel,draftkings|decimal": [
+    "icehockey_nhl|h2h,spreads,totals|us|fanduel,draftkings,betmgm,espnbet|decimal": [
       {
         "id": "nhl-1",
         "sport_key": "icehockey_nhl",
@@ -50,22 +66,44 @@
               {
                 "key": "h2h",
                 "outcomes": [
-                  {"name": "Boston Bruins", "price": 1.95},
-                  {"name": "Toronto Maple Leafs", "price": 1.95}
+                  {
+                    "name": "Boston Bruins",
+                    "price": 1.95
+                  },
+                  {
+                    "name": "Toronto Maple Leafs",
+                    "price": 1.95
+                  }
                 ]
               },
               {
                 "key": "spreads",
                 "outcomes": [
-                  {"name": "Boston Bruins", "price": 1.91, "point": -1.5},
-                  {"name": "Toronto Maple Leafs", "price": 1.91, "point": 1.5}
+                  {
+                    "name": "Boston Bruins",
+                    "price": 1.91,
+                    "point": -1.5
+                  },
+                  {
+                    "name": "Toronto Maple Leafs",
+                    "price": 1.91,
+                    "point": 1.5
+                  }
                 ]
               },
               {
                 "key": "totals",
                 "outcomes": [
-                  {"name": "Over", "price": 1.91, "point": 5.5},
-                  {"name": "Under", "price": 1.91, "point": 5.5}
+                  {
+                    "name": "Over",
+                    "price": 1.91,
+                    "point": 5.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.91,
+                    "point": 5.5
+                  }
                 ]
               }
             ]
@@ -77,22 +115,142 @@
               {
                 "key": "h2h",
                 "outcomes": [
-                  {"name": "Boston Bruins", "price": 1.98},
-                  {"name": "Toronto Maple Leafs", "price": 1.92}
+                  {
+                    "name": "Boston Bruins",
+                    "price": 1.98
+                  },
+                  {
+                    "name": "Toronto Maple Leafs",
+                    "price": 1.92
+                  }
                 ]
               },
               {
                 "key": "spreads",
                 "outcomes": [
-                  {"name": "Boston Bruins", "price": 1.89, "point": -1.5},
-                  {"name": "Toronto Maple Leafs", "price": 1.93, "point": 1.5}
+                  {
+                    "name": "Boston Bruins",
+                    "price": 1.89,
+                    "point": -1.5
+                  },
+                  {
+                    "name": "Toronto Maple Leafs",
+                    "price": 1.93,
+                    "point": 1.5
+                  }
                 ]
               },
               {
                 "key": "totals",
                 "outcomes": [
-                  {"name": "Over", "price": 1.9, "point": 5.5},
-                  {"name": "Under", "price": 1.92, "point": 5.5}
+                  {
+                    "name": "Over",
+                    "price": 1.9,
+                    "point": 5.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.92,
+                    "point": 5.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "betmgm",
+            "title": "BetMGM",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Boston Bruins",
+                    "price": 1.96
+                  },
+                  {
+                    "name": "Toronto Maple Leafs",
+                    "price": 1.9
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Boston Bruins",
+                    "price": 1.87,
+                    "point": -1.5
+                  },
+                  {
+                    "name": "Toronto Maple Leafs",
+                    "price": 1.91,
+                    "point": 1.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.88,
+                    "point": 5.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.9,
+                    "point": 5.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "espnbet",
+            "title": "theScore Bet",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Boston Bruins",
+                    "price": 1.96
+                  },
+                  {
+                    "name": "Toronto Maple Leafs",
+                    "price": 1.9
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Boston Bruins",
+                    "price": 1.87,
+                    "point": -1.5
+                  },
+                  {
+                    "name": "Toronto Maple Leafs",
+                    "price": 1.91,
+                    "point": 1.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.88,
+                    "point": 5.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.9,
+                    "point": 5.5
+                  }
                 ]
               }
             ]
@@ -114,22 +272,44 @@
               {
                 "key": "h2h",
                 "outcomes": [
-                  {"name": "Colorado Avalanche", "price": 2.1},
-                  {"name": "Dallas Stars", "price": 1.8}
+                  {
+                    "name": "Colorado Avalanche",
+                    "price": 2.1
+                  },
+                  {
+                    "name": "Dallas Stars",
+                    "price": 1.8
+                  }
                 ]
               },
               {
                 "key": "spreads",
                 "outcomes": [
-                  {"name": "Colorado Avalanche", "price": 1.91, "point": 1.5},
-                  {"name": "Dallas Stars", "price": 1.91, "point": -1.5}
+                  {
+                    "name": "Colorado Avalanche",
+                    "price": 1.91,
+                    "point": 1.5
+                  },
+                  {
+                    "name": "Dallas Stars",
+                    "price": 1.91,
+                    "point": -1.5
+                  }
                 ]
               },
               {
                 "key": "totals",
                 "outcomes": [
-                  {"name": "Over", "price": 1.91, "point": 6.5},
-                  {"name": "Under", "price": 1.91, "point": 6.5}
+                  {
+                    "name": "Over",
+                    "price": 1.91,
+                    "point": 6.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.91,
+                    "point": 6.5
+                  }
                 ]
               }
             ]
@@ -141,22 +321,142 @@
               {
                 "key": "h2h",
                 "outcomes": [
-                  {"name": "Colorado Avalanche", "price": 2.05},
-                  {"name": "Dallas Stars", "price": 1.85}
+                  {
+                    "name": "Colorado Avalanche",
+                    "price": 2.05
+                  },
+                  {
+                    "name": "Dallas Stars",
+                    "price": 1.85
+                  }
                 ]
               },
               {
                 "key": "spreads",
                 "outcomes": [
-                  {"name": "Colorado Avalanche", "price": 1.93, "point": 1.5},
-                  {"name": "Dallas Stars", "price": 1.89, "point": -1.5}
+                  {
+                    "name": "Colorado Avalanche",
+                    "price": 1.93,
+                    "point": 1.5
+                  },
+                  {
+                    "name": "Dallas Stars",
+                    "price": 1.89,
+                    "point": -1.5
+                  }
                 ]
               },
               {
                 "key": "totals",
                 "outcomes": [
-                  {"name": "Over", "price": 1.92, "point": 6.5},
-                  {"name": "Under", "price": 1.9, "point": 6.5}
+                  {
+                    "name": "Over",
+                    "price": 1.92,
+                    "point": 6.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.9,
+                    "point": 6.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "betmgm",
+            "title": "BetMGM",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Colorado Avalanche",
+                    "price": 2.03
+                  },
+                  {
+                    "name": "Dallas Stars",
+                    "price": 1.83
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Colorado Avalanche",
+                    "price": 1.91,
+                    "point": 1.5
+                  },
+                  {
+                    "name": "Dallas Stars",
+                    "price": 1.87,
+                    "point": -1.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.9,
+                    "point": 6.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.88,
+                    "point": 6.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "espnbet",
+            "title": "theScore Bet",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Colorado Avalanche",
+                    "price": 2.03
+                  },
+                  {
+                    "name": "Dallas Stars",
+                    "price": 1.83
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Colorado Avalanche",
+                    "price": 1.91,
+                    "point": 1.5
+                  },
+                  {
+                    "name": "Dallas Stars",
+                    "price": 1.87,
+                    "point": -1.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.9,
+                    "point": 6.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.88,
+                    "point": 6.5
+                  }
                 ]
               }
             ]
@@ -164,7 +464,7 @@
         ]
       }
     ],
-    "americanfootball_nfl|h2h,spreads,totals|us|fanduel,draftkings|decimal": [
+    "americanfootball_nfl|h2h,spreads,totals|us|fanduel,draftkings,betmgm,espnbet|decimal": [
       {
         "id": "nfl-1",
         "sport_key": "americanfootball_nfl",
@@ -180,22 +480,44 @@
               {
                 "key": "h2h",
                 "outcomes": [
-                  {"name": "Kansas City Chiefs", "price": 1.85},
-                  {"name": "Buffalo Bills", "price": 2.05}
+                  {
+                    "name": "Kansas City Chiefs",
+                    "price": 1.85
+                  },
+                  {
+                    "name": "Buffalo Bills",
+                    "price": 2.05
+                  }
                 ]
               },
               {
                 "key": "spreads",
                 "outcomes": [
-                  {"name": "Kansas City Chiefs", "price": 1.91, "point": -3.5},
-                  {"name": "Buffalo Bills", "price": 1.91, "point": 3.5}
+                  {
+                    "name": "Kansas City Chiefs",
+                    "price": 1.91,
+                    "point": -3.5
+                  },
+                  {
+                    "name": "Buffalo Bills",
+                    "price": 1.91,
+                    "point": 3.5
+                  }
                 ]
               },
               {
                 "key": "totals",
                 "outcomes": [
-                  {"name": "Over", "price": 1.91, "point": 51.5},
-                  {"name": "Under", "price": 1.91, "point": 51.5}
+                  {
+                    "name": "Over",
+                    "price": 1.91,
+                    "point": 51.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.91,
+                    "point": 51.5
+                  }
                 ]
               }
             ]
@@ -207,22 +529,142 @@
               {
                 "key": "h2h",
                 "outcomes": [
-                  {"name": "Kansas City Chiefs", "price": 1.88},
-                  {"name": "Buffalo Bills", "price": 2.0}
+                  {
+                    "name": "Kansas City Chiefs",
+                    "price": 1.88
+                  },
+                  {
+                    "name": "Buffalo Bills",
+                    "price": 2.0
+                  }
                 ]
               },
               {
                 "key": "spreads",
                 "outcomes": [
-                  {"name": "Kansas City Chiefs", "price": 1.89, "point": -3.5},
-                  {"name": "Buffalo Bills", "price": 1.93, "point": 3.5}
+                  {
+                    "name": "Kansas City Chiefs",
+                    "price": 1.89,
+                    "point": -3.5
+                  },
+                  {
+                    "name": "Buffalo Bills",
+                    "price": 1.93,
+                    "point": 3.5
+                  }
                 ]
               },
               {
                 "key": "totals",
                 "outcomes": [
-                  {"name": "Over", "price": 1.9, "point": 51.5},
-                  {"name": "Under", "price": 1.92, "point": 51.5}
+                  {
+                    "name": "Over",
+                    "price": 1.9,
+                    "point": 51.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.92,
+                    "point": 51.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "betmgm",
+            "title": "BetMGM",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Kansas City Chiefs",
+                    "price": 1.86
+                  },
+                  {
+                    "name": "Buffalo Bills",
+                    "price": 1.98
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Kansas City Chiefs",
+                    "price": 1.87,
+                    "point": -3.5
+                  },
+                  {
+                    "name": "Buffalo Bills",
+                    "price": 1.91,
+                    "point": 3.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.88,
+                    "point": 51.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.9,
+                    "point": 51.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "espnbet",
+            "title": "theScore Bet",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Kansas City Chiefs",
+                    "price": 1.86
+                  },
+                  {
+                    "name": "Buffalo Bills",
+                    "price": 1.98
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Kansas City Chiefs",
+                    "price": 1.87,
+                    "point": -3.5
+                  },
+                  {
+                    "name": "Buffalo Bills",
+                    "price": 1.91,
+                    "point": 3.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.88,
+                    "point": 51.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.9,
+                    "point": 51.5
+                  }
                 ]
               }
             ]
@@ -230,7 +672,7 @@
         ]
       }
     ],
-    "baseball_mlb|h2h,spreads,totals|us|fanduel,draftkings|decimal": [
+    "baseball_mlb|h2h,spreads,totals|us|fanduel,draftkings,betmgm,espnbet|decimal": [
       {
         "id": "mlb-1",
         "sport_key": "baseball_mlb",
@@ -246,22 +688,44 @@
               {
                 "key": "h2h",
                 "outcomes": [
-                  {"name": "Cincinnati Reds", "price": 1.95},
-                  {"name": "Baltimore Orioles", "price": 1.95}
+                  {
+                    "name": "Cincinnati Reds",
+                    "price": 1.95
+                  },
+                  {
+                    "name": "Baltimore Orioles",
+                    "price": 1.95
+                  }
                 ]
               },
               {
                 "key": "spreads",
                 "outcomes": [
-                  {"name": "Cincinnati Reds", "price": 1.91, "point": -1.5},
-                  {"name": "Baltimore Orioles", "price": 1.91, "point": 1.5}
+                  {
+                    "name": "Cincinnati Reds",
+                    "price": 1.91,
+                    "point": -1.5
+                  },
+                  {
+                    "name": "Baltimore Orioles",
+                    "price": 1.91,
+                    "point": 1.5
+                  }
                 ]
               },
               {
                 "key": "totals",
                 "outcomes": [
-                  {"name": "Over", "price": 1.91, "point": 8.5},
-                  {"name": "Under", "price": 1.91, "point": 8.5}
+                  {
+                    "name": "Over",
+                    "price": 1.91,
+                    "point": 8.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.91,
+                    "point": 8.5
+                  }
                 ]
               }
             ]
@@ -273,22 +737,142 @@
               {
                 "key": "h2h",
                 "outcomes": [
-                  {"name": "Cincinnati Reds", "price": 1.92},
-                  {"name": "Baltimore Orioles", "price": 1.98}
+                  {
+                    "name": "Cincinnati Reds",
+                    "price": 1.92
+                  },
+                  {
+                    "name": "Baltimore Orioles",
+                    "price": 1.98
+                  }
                 ]
               },
               {
                 "key": "spreads",
                 "outcomes": [
-                  {"name": "Cincinnati Reds", "price": 1.89, "point": -1.5},
-                  {"name": "Baltimore Orioles", "price": 1.93, "point": 1.5}
+                  {
+                    "name": "Cincinnati Reds",
+                    "price": 1.89,
+                    "point": -1.5
+                  },
+                  {
+                    "name": "Baltimore Orioles",
+                    "price": 1.93,
+                    "point": 1.5
+                  }
                 ]
               },
               {
                 "key": "totals",
                 "outcomes": [
-                  {"name": "Over", "price": 1.9, "point": 8.5},
-                  {"name": "Under", "price": 1.92, "point": 8.5}
+                  {
+                    "name": "Over",
+                    "price": 1.9,
+                    "point": 8.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.92,
+                    "point": 8.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "betmgm",
+            "title": "BetMGM",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Cincinnati Reds",
+                    "price": 1.9
+                  },
+                  {
+                    "name": "Baltimore Orioles",
+                    "price": 1.96
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Cincinnati Reds",
+                    "price": 1.87,
+                    "point": -1.5
+                  },
+                  {
+                    "name": "Baltimore Orioles",
+                    "price": 1.91,
+                    "point": 1.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.88,
+                    "point": 8.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.9,
+                    "point": 8.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "espnbet",
+            "title": "theScore Bet",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Cincinnati Reds",
+                    "price": 1.9
+                  },
+                  {
+                    "name": "Baltimore Orioles",
+                    "price": 1.96
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Cincinnati Reds",
+                    "price": 1.87,
+                    "point": -1.5
+                  },
+                  {
+                    "name": "Baltimore Orioles",
+                    "price": 1.91,
+                    "point": 1.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.88,
+                    "point": 8.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.9,
+                    "point": 8.5
+                  }
                 ]
               }
             ]
@@ -296,7 +880,7 @@
         ]
       }
     ],
-    "basketball_nba|h2h,spreads,totals|us|fanduel,draftkings|decimal": [
+    "basketball_nba|h2h,spreads,totals|us|fanduel,draftkings,betmgm,espnbet|decimal": [
       {
         "id": "nba-1",
         "sport_key": "basketball_nba",
@@ -312,22 +896,44 @@
               {
                 "key": "h2h",
                 "outcomes": [
-                  {"name": "Boston Celtics", "price": 1.85},
-                  {"name": "Los Angeles Lakers", "price": 2.1}
+                  {
+                    "name": "Boston Celtics",
+                    "price": 1.85
+                  },
+                  {
+                    "name": "Los Angeles Lakers",
+                    "price": 2.1
+                  }
                 ]
               },
               {
                 "key": "spreads",
                 "outcomes": [
-                  {"name": "Boston Celtics", "price": 1.91, "point": -2.5},
-                  {"name": "Los Angeles Lakers", "price": 1.91, "point": 2.5}
+                  {
+                    "name": "Boston Celtics",
+                    "price": 1.91,
+                    "point": -2.5
+                  },
+                  {
+                    "name": "Los Angeles Lakers",
+                    "price": 1.91,
+                    "point": 2.5
+                  }
                 ]
               },
               {
                 "key": "totals",
                 "outcomes": [
-                  {"name": "Over", "price": 1.91, "point": 221.5},
-                  {"name": "Under", "price": 1.91, "point": 221.5}
+                  {
+                    "name": "Over",
+                    "price": 1.91,
+                    "point": 221.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.91,
+                    "point": 221.5
+                  }
                 ]
               }
             ]
@@ -339,22 +945,142 @@
               {
                 "key": "h2h",
                 "outcomes": [
-                  {"name": "Boston Celtics", "price": 1.95},
-                  {"name": "Los Angeles Lakers", "price": 2.0}
+                  {
+                    "name": "Boston Celtics",
+                    "price": 1.95
+                  },
+                  {
+                    "name": "Los Angeles Lakers",
+                    "price": 2.0
+                  }
                 ]
               },
               {
                 "key": "spreads",
                 "outcomes": [
-                  {"name": "Boston Celtics", "price": 1.89, "point": -2.5},
-                  {"name": "Los Angeles Lakers", "price": 1.93, "point": 2.5}
+                  {
+                    "name": "Boston Celtics",
+                    "price": 1.89,
+                    "point": -2.5
+                  },
+                  {
+                    "name": "Los Angeles Lakers",
+                    "price": 1.93,
+                    "point": 2.5
+                  }
                 ]
               },
               {
                 "key": "totals",
                 "outcomes": [
-                  {"name": "Over", "price": 1.9, "point": 221.5},
-                  {"name": "Under", "price": 1.92, "point": 221.5}
+                  {
+                    "name": "Over",
+                    "price": 1.9,
+                    "point": 221.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.92,
+                    "point": 221.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "betmgm",
+            "title": "BetMGM",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Boston Celtics",
+                    "price": 1.93
+                  },
+                  {
+                    "name": "Los Angeles Lakers",
+                    "price": 1.98
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Boston Celtics",
+                    "price": 1.87,
+                    "point": -2.5
+                  },
+                  {
+                    "name": "Los Angeles Lakers",
+                    "price": 1.91,
+                    "point": 2.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.88,
+                    "point": 221.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.9,
+                    "point": 221.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "espnbet",
+            "title": "theScore Bet",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Boston Celtics",
+                    "price": 1.93
+                  },
+                  {
+                    "name": "Los Angeles Lakers",
+                    "price": 1.98
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Boston Celtics",
+                    "price": 1.87,
+                    "point": -2.5
+                  },
+                  {
+                    "name": "Los Angeles Lakers",
+                    "price": 1.91,
+                    "point": 2.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.88,
+                    "point": 221.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.9,
+                    "point": 221.5
+                  }
                 ]
               }
             ]
@@ -376,22 +1102,44 @@
               {
                 "key": "h2h",
                 "outcomes": [
-                  {"name": "Phoenix Suns", "price": 1.9},
-                  {"name": "Golden State Warriors", "price": 2.05}
+                  {
+                    "name": "Phoenix Suns",
+                    "price": 1.9
+                  },
+                  {
+                    "name": "Golden State Warriors",
+                    "price": 2.05
+                  }
                 ]
               },
               {
                 "key": "spreads",
                 "outcomes": [
-                  {"name": "Phoenix Suns", "price": 1.91, "point": -1.5},
-                  {"name": "Golden State Warriors", "price": 1.91, "point": 1.5}
+                  {
+                    "name": "Phoenix Suns",
+                    "price": 1.91,
+                    "point": -1.5
+                  },
+                  {
+                    "name": "Golden State Warriors",
+                    "price": 1.91,
+                    "point": 1.5
+                  }
                 ]
               },
               {
                 "key": "totals",
                 "outcomes": [
-                  {"name": "Over", "price": 1.91, "point": 228.5},
-                  {"name": "Under", "price": 1.91, "point": 228.5}
+                  {
+                    "name": "Over",
+                    "price": 1.91,
+                    "point": 228.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.91,
+                    "point": 228.5
+                  }
                 ]
               }
             ]
@@ -403,22 +1151,142 @@
               {
                 "key": "h2h",
                 "outcomes": [
-                  {"name": "Phoenix Suns", "price": 2.0},
-                  {"name": "Golden State Warriors", "price": 1.95}
+                  {
+                    "name": "Phoenix Suns",
+                    "price": 2.0
+                  },
+                  {
+                    "name": "Golden State Warriors",
+                    "price": 1.95
+                  }
                 ]
               },
               {
                 "key": "spreads",
                 "outcomes": [
-                  {"name": "Phoenix Suns", "price": 1.89, "point": -1.5},
-                  {"name": "Golden State Warriors", "price": 1.93, "point": 1.5}
+                  {
+                    "name": "Phoenix Suns",
+                    "price": 1.89,
+                    "point": -1.5
+                  },
+                  {
+                    "name": "Golden State Warriors",
+                    "price": 1.93,
+                    "point": 1.5
+                  }
                 ]
               },
               {
                 "key": "totals",
                 "outcomes": [
-                  {"name": "Over", "price": 1.9, "point": 228.5},
-                  {"name": "Under", "price": 1.92, "point": 228.5}
+                  {
+                    "name": "Over",
+                    "price": 1.9,
+                    "point": 228.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.92,
+                    "point": 228.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "betmgm",
+            "title": "BetMGM",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Phoenix Suns",
+                    "price": 1.98
+                  },
+                  {
+                    "name": "Golden State Warriors",
+                    "price": 1.93
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Phoenix Suns",
+                    "price": 1.87,
+                    "point": -1.5
+                  },
+                  {
+                    "name": "Golden State Warriors",
+                    "price": 1.91,
+                    "point": 1.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.88,
+                    "point": 228.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.9,
+                    "point": 228.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "espnbet",
+            "title": "theScore Bet",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Phoenix Suns",
+                    "price": 1.98
+                  },
+                  {
+                    "name": "Golden State Warriors",
+                    "price": 1.93
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Phoenix Suns",
+                    "price": 1.87,
+                    "point": -1.5
+                  },
+                  {
+                    "name": "Golden State Warriors",
+                    "price": 1.91,
+                    "point": 1.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.88,
+                    "point": 228.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.9,
+                    "point": 228.5
+                  }
                 ]
               }
             ]
@@ -440,22 +1308,44 @@
               {
                 "key": "h2h",
                 "outcomes": [
-                  {"name": "Miami Heat", "price": 1.88},
-                  {"name": "New York Knicks", "price": 2.08}
+                  {
+                    "name": "Miami Heat",
+                    "price": 1.88
+                  },
+                  {
+                    "name": "New York Knicks",
+                    "price": 2.08
+                  }
                 ]
               },
               {
                 "key": "spreads",
                 "outcomes": [
-                  {"name": "Miami Heat", "price": 1.91, "point": -1.5},
-                  {"name": "New York Knicks", "price": 1.91, "point": 1.5}
+                  {
+                    "name": "Miami Heat",
+                    "price": 1.91,
+                    "point": -1.5
+                  },
+                  {
+                    "name": "New York Knicks",
+                    "price": 1.91,
+                    "point": 1.5
+                  }
                 ]
               },
               {
                 "key": "totals",
                 "outcomes": [
-                  {"name": "Over", "price": 1.91, "point": 215.5},
-                  {"name": "Under", "price": 1.91, "point": 215.5}
+                  {
+                    "name": "Over",
+                    "price": 1.91,
+                    "point": 215.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.91,
+                    "point": 215.5
+                  }
                 ]
               }
             ]
@@ -467,22 +1357,1108 @@
               {
                 "key": "h2h",
                 "outcomes": [
-                  {"name": "Miami Heat", "price": 1.98},
-                  {"name": "New York Knicks", "price": 1.98}
+                  {
+                    "name": "Miami Heat",
+                    "price": 1.98
+                  },
+                  {
+                    "name": "New York Knicks",
+                    "price": 1.98
+                  }
                 ]
               },
               {
                 "key": "spreads",
                 "outcomes": [
-                  {"name": "Miami Heat", "price": 1.89, "point": -1.5},
-                  {"name": "New York Knicks", "price": 1.93, "point": 1.5}
+                  {
+                    "name": "Miami Heat",
+                    "price": 1.89,
+                    "point": -1.5
+                  },
+                  {
+                    "name": "New York Knicks",
+                    "price": 1.93,
+                    "point": 1.5
+                  }
                 ]
               },
               {
                 "key": "totals",
                 "outcomes": [
-                  {"name": "Over", "price": 1.9, "point": 215.5},
-                  {"name": "Under", "price": 1.92, "point": 215.5}
+                  {
+                    "name": "Over",
+                    "price": 1.9,
+                    "point": 215.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.92,
+                    "point": 215.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "betmgm",
+            "title": "BetMGM",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Miami Heat",
+                    "price": 1.96
+                  },
+                  {
+                    "name": "New York Knicks",
+                    "price": 1.96
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Miami Heat",
+                    "price": 1.87,
+                    "point": -1.5
+                  },
+                  {
+                    "name": "New York Knicks",
+                    "price": 1.91,
+                    "point": 1.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.88,
+                    "point": 215.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.9,
+                    "point": 215.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "espnbet",
+            "title": "theScore Bet",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Miami Heat",
+                    "price": 1.96
+                  },
+                  {
+                    "name": "New York Knicks",
+                    "price": 1.96
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Miami Heat",
+                    "price": 1.87,
+                    "point": -1.5
+                  },
+                  {
+                    "name": "New York Knicks",
+                    "price": 1.91,
+                    "point": 1.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.88,
+                    "point": 215.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.9,
+                    "point": 215.5
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "mma_mixed_martial_arts|h2h,spreads,totals|us|fanduel,draftkings,betmgm,espnbet|decimal": [
+      {
+        "id": "ufc-1",
+        "sport_key": "mma_mixed_martial_arts",
+        "sport_title": "UFC",
+        "commence_time": "2026-07-03T20:00:00Z",
+        "home_team": "Derek Munoz",
+        "away_team": "Tyrell Combs",
+        "bookmakers": [
+          {
+            "key": "fanduel",
+            "title": "FanDuel",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Derek Munoz",
+                    "price": 1.83
+                  },
+                  {
+                    "name": "Tyrell Combs",
+                    "price": 2.05
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "draftkings",
+            "title": "DraftKings",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Derek Munoz",
+                    "price": 1.85
+                  },
+                  {
+                    "name": "Tyrell Combs",
+                    "price": 2.0
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "betmgm",
+            "title": "BetMGM",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Derek Munoz",
+                    "price": 1.8
+                  },
+                  {
+                    "name": "Tyrell Combs",
+                    "price": 2.1
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "espnbet",
+            "title": "theScore Bet",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Derek Munoz",
+                    "price": 1.83
+                  },
+                  {
+                    "name": "Tyrell Combs",
+                    "price": 1.98
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "ufc-2",
+        "sport_key": "mma_mixed_martial_arts",
+        "sport_title": "UFC",
+        "commence_time": "2026-07-03T22:00:00Z",
+        "home_team": "Owen Kessler",
+        "away_team": "Malik Osei",
+        "bookmakers": [
+          {
+            "key": "fanduel",
+            "title": "FanDuel",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Owen Kessler",
+                    "price": 1.95
+                  },
+                  {
+                    "name": "Malik Osei",
+                    "price": 1.91
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "draftkings",
+            "title": "DraftKings",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Owen Kessler",
+                    "price": 1.98
+                  },
+                  {
+                    "name": "Malik Osei",
+                    "price": 1.88
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "betmgm",
+            "title": "BetMGM",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Owen Kessler",
+                    "price": 1.93
+                  },
+                  {
+                    "name": "Malik Osei",
+                    "price": 1.93
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "espnbet",
+            "title": "theScore Bet",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Owen Kessler",
+                    "price": 1.96
+                  },
+                  {
+                    "name": "Malik Osei",
+                    "price": 1.86
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "ufc-3",
+        "sport_key": "mma_mixed_martial_arts",
+        "sport_title": "UFC",
+        "commence_time": "2026-07-04T00:00:00Z",
+        "home_team": "Bruno Castellano",
+        "away_team": "Nikolai Orlov",
+        "bookmakers": [
+          {
+            "key": "fanduel",
+            "title": "FanDuel",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Bruno Castellano",
+                    "price": 2.2
+                  },
+                  {
+                    "name": "Nikolai Orlov",
+                    "price": 1.72
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "draftkings",
+            "title": "DraftKings",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Bruno Castellano",
+                    "price": 2.15
+                  },
+                  {
+                    "name": "Nikolai Orlov",
+                    "price": 1.75
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "betmgm",
+            "title": "BetMGM",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Bruno Castellano",
+                    "price": 2.25
+                  },
+                  {
+                    "name": "Nikolai Orlov",
+                    "price": 1.7
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "espnbet",
+            "title": "theScore Bet",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Bruno Castellano",
+                    "price": 2.13
+                  },
+                  {
+                    "name": "Nikolai Orlov",
+                    "price": 1.73
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "ufc-4",
+        "sport_key": "mma_mixed_martial_arts",
+        "sport_title": "UFC",
+        "commence_time": "2026-07-04T02:00:00Z",
+        "home_team": "Sam Whitfield",
+        "away_team": "Andre Bishop",
+        "bookmakers": [
+          {
+            "key": "fanduel",
+            "title": "FanDuel",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Sam Whitfield",
+                    "price": 1.65
+                  },
+                  {
+                    "name": "Andre Bishop",
+                    "price": 2.35
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "draftkings",
+            "title": "DraftKings",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Sam Whitfield",
+                    "price": 1.67
+                  },
+                  {
+                    "name": "Andre Bishop",
+                    "price": 2.3
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "betmgm",
+            "title": "BetMGM",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Sam Whitfield",
+                    "price": 1.63
+                  },
+                  {
+                    "name": "Andre Bishop",
+                    "price": 2.4
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "espnbet",
+            "title": "theScore Bet",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Sam Whitfield",
+                    "price": 1.65
+                  },
+                  {
+                    "name": "Andre Bishop",
+                    "price": 2.28
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "basketball_wnba|h2h,spreads,totals|us|fanduel,draftkings,betmgm,espnbet|decimal": [
+      {
+        "id": "wnba-1",
+        "sport_key": "basketball_wnba",
+        "sport_title": "WNBA",
+        "commence_time": "2026-07-15T00:00:00Z",
+        "home_team": "Las Vegas Aces",
+        "away_team": "New York Liberty",
+        "bookmakers": [
+          {
+            "key": "fanduel",
+            "title": "FanDuel",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Las Vegas Aces",
+                    "price": 1.75
+                  },
+                  {
+                    "name": "New York Liberty",
+                    "price": 2.1
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Las Vegas Aces",
+                    "price": 1.91,
+                    "point": -4.5
+                  },
+                  {
+                    "name": "New York Liberty",
+                    "price": 1.91,
+                    "point": 4.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.91,
+                    "point": 165.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.91,
+                    "point": 165.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "draftkings",
+            "title": "DraftKings",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Las Vegas Aces",
+                    "price": 1.8
+                  },
+                  {
+                    "name": "New York Liberty",
+                    "price": 2.05
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Las Vegas Aces",
+                    "price": 1.89,
+                    "point": -4.5
+                  },
+                  {
+                    "name": "New York Liberty",
+                    "price": 1.93,
+                    "point": 4.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.9,
+                    "point": 165.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.92,
+                    "point": 165.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "betmgm",
+            "title": "BetMGM",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Las Vegas Aces",
+                    "price": 1.77
+                  },
+                  {
+                    "name": "New York Liberty",
+                    "price": 2.08
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Las Vegas Aces",
+                    "price": 1.87,
+                    "point": -4.5
+                  },
+                  {
+                    "name": "New York Liberty",
+                    "price": 1.91,
+                    "point": 4.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.88,
+                    "point": 165.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.9,
+                    "point": 165.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "espnbet",
+            "title": "theScore Bet",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Las Vegas Aces",
+                    "price": 1.78
+                  },
+                  {
+                    "name": "New York Liberty",
+                    "price": 2.03
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Las Vegas Aces",
+                    "price": 1.87,
+                    "point": -4.5
+                  },
+                  {
+                    "name": "New York Liberty",
+                    "price": 1.91,
+                    "point": 4.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.88,
+                    "point": 165.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.9,
+                    "point": 165.5
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "wnba-2",
+        "sport_key": "basketball_wnba",
+        "sport_title": "WNBA",
+        "commence_time": "2026-07-15T23:30:00Z",
+        "home_team": "Minnesota Lynx",
+        "away_team": "Connecticut Sun",
+        "bookmakers": [
+          {
+            "key": "fanduel",
+            "title": "FanDuel",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Minnesota Lynx",
+                    "price": 1.75
+                  },
+                  {
+                    "name": "Connecticut Sun",
+                    "price": 2.1
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Minnesota Lynx",
+                    "price": 1.91,
+                    "point": -3.5
+                  },
+                  {
+                    "name": "Connecticut Sun",
+                    "price": 1.91,
+                    "point": 3.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.91,
+                    "point": 158.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.91,
+                    "point": 158.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "draftkings",
+            "title": "DraftKings",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Minnesota Lynx",
+                    "price": 1.8
+                  },
+                  {
+                    "name": "Connecticut Sun",
+                    "price": 2.05
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Minnesota Lynx",
+                    "price": 1.89,
+                    "point": -3.5
+                  },
+                  {
+                    "name": "Connecticut Sun",
+                    "price": 1.93,
+                    "point": 3.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.9,
+                    "point": 158.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.92,
+                    "point": 158.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "betmgm",
+            "title": "BetMGM",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Minnesota Lynx",
+                    "price": 1.77
+                  },
+                  {
+                    "name": "Connecticut Sun",
+                    "price": 2.08
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Minnesota Lynx",
+                    "price": 1.87,
+                    "point": -3.5
+                  },
+                  {
+                    "name": "Connecticut Sun",
+                    "price": 1.91,
+                    "point": 3.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.88,
+                    "point": 158.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.9,
+                    "point": 158.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "espnbet",
+            "title": "theScore Bet",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Minnesota Lynx",
+                    "price": 1.78
+                  },
+                  {
+                    "name": "Connecticut Sun",
+                    "price": 2.03
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Minnesota Lynx",
+                    "price": 1.87,
+                    "point": -3.5
+                  },
+                  {
+                    "name": "Connecticut Sun",
+                    "price": 1.91,
+                    "point": 3.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.88,
+                    "point": 158.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.9,
+                    "point": 158.5
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "wnba-3",
+        "sport_key": "basketball_wnba",
+        "sport_title": "WNBA",
+        "commence_time": "2026-07-16T02:00:00Z",
+        "home_team": "Seattle Storm",
+        "away_team": "Phoenix Mercury",
+        "bookmakers": [
+          {
+            "key": "fanduel",
+            "title": "FanDuel",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Seattle Storm",
+                    "price": 1.75
+                  },
+                  {
+                    "name": "Phoenix Mercury",
+                    "price": 2.1
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Seattle Storm",
+                    "price": 1.91,
+                    "point": -2.5
+                  },
+                  {
+                    "name": "Phoenix Mercury",
+                    "price": 1.91,
+                    "point": 2.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.91,
+                    "point": 162.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.91,
+                    "point": 162.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "draftkings",
+            "title": "DraftKings",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Seattle Storm",
+                    "price": 1.8
+                  },
+                  {
+                    "name": "Phoenix Mercury",
+                    "price": 2.05
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Seattle Storm",
+                    "price": 1.89,
+                    "point": -2.5
+                  },
+                  {
+                    "name": "Phoenix Mercury",
+                    "price": 1.93,
+                    "point": 2.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.9,
+                    "point": 162.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.92,
+                    "point": 162.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "betmgm",
+            "title": "BetMGM",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Seattle Storm",
+                    "price": 1.77
+                  },
+                  {
+                    "name": "Phoenix Mercury",
+                    "price": 2.08
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Seattle Storm",
+                    "price": 1.87,
+                    "point": -2.5
+                  },
+                  {
+                    "name": "Phoenix Mercury",
+                    "price": 1.91,
+                    "point": 2.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.88,
+                    "point": 162.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.9,
+                    "point": 162.5
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "espnbet",
+            "title": "theScore Bet",
+            "markets": [
+              {
+                "key": "h2h",
+                "outcomes": [
+                  {
+                    "name": "Seattle Storm",
+                    "price": 1.78
+                  },
+                  {
+                    "name": "Phoenix Mercury",
+                    "price": 2.03
+                  }
+                ]
+              },
+              {
+                "key": "spreads",
+                "outcomes": [
+                  {
+                    "name": "Seattle Storm",
+                    "price": 1.87,
+                    "point": -2.5
+                  },
+                  {
+                    "name": "Phoenix Mercury",
+                    "price": 1.91,
+                    "point": 2.5
+                  }
+                ]
+              },
+              {
+                "key": "totals",
+                "outcomes": [
+                  {
+                    "name": "Over",
+                    "price": 1.88,
+                    "point": 162.5
+                  },
+                  {
+                    "name": "Under",
+                    "price": 1.9,
+                    "point": 162.5
+                  }
                 ]
               }
             ]

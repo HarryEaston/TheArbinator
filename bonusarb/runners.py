@@ -1,6 +1,6 @@
 """Run orchestration: build a RunConfig interactively or from CLI flags, then
 fetch odds, auto-pull Polymarket hedges, search for the best profit-boost
-parlay (1-3 legs), and render the report.
+parlay (1-4 legs), and render the report.
 """
 
 from __future__ import annotations
@@ -39,16 +39,18 @@ from bonusarb.prompts import (
     prompt_league,
     prompt_percent_step,
 )
+from bonusarb.fx import FxError, cad_to_usd, fetch_usd_cad_rate
 from bonusarb.report import render_report
+from bonusarb.schedule import filter_upcoming_games
 
 # Default markets scanned by the automatic optimizer.
 DEFAULT_SCAN_MARKETS = "h2h,spreads,totals"
 
-# Parlay leg-count bounds. Most profit-boost tokens require 3 legs; we cap at 3
+# Parlay leg-count bounds. Most profit-boost tokens require 3 legs; we cap at 4
 # because compounded vig beyond that usually eats the boost edge.
 DEFAULT_LEG_COUNT = 3
 MIN_LEG_COUNT = 1
-MAX_LEG_COUNT = 3
+MAX_LEG_COUNT = 4
 
 
 @dataclass
@@ -70,9 +72,48 @@ class RunConfig:
     min_gap_minutes: int
     cache_ttl: int
     api_key: str
+    # When set, max_stake/bankroll were converted from CAD at this rate (CAD per USD).
+    display_cad_rate: float | None = None
 
 
-def run_auto(config: RunConfig, client: OddsApiClient, cache: OddsCache) -> int:
+def resolve_display_cad_rate(args: argparse.Namespace) -> float | None:
+    """Return the USD/CAD rate when stakes are CAD (default), else None."""
+    if not getattr(args, "cad", True):
+        return None
+    if args.fx_rate is not None:
+        if args.fx_rate <= 0:
+            raise FxError(f"--fx-rate must be positive, got {args.fx_rate}")
+        return float(args.fx_rate)
+    return fetch_usd_cad_rate()
+
+
+def apply_cad_stakes(
+    args: argparse.Namespace,
+    max_stake: float,
+    bankroll: float | None,
+) -> tuple[float, float | None, float | None]:
+    """Convert CAD stakes to USD (default); return (max_stake, bankroll, rate)."""
+    rate = resolve_display_cad_rate(args)
+    if rate is None:
+        return max_stake, bankroll, None
+    max_usd = cad_to_usd(max_stake, rate)
+    bank_usd = cad_to_usd(bankroll, rate) if bankroll is not None else None
+    print(
+        f"FX: 1 USD = {rate:.4f} CAD  "
+        f"(max stake {max_stake:.2f} CAD -> {max_usd:.2f} USD for sizing)"
+    )
+    if bankroll is not None:
+        print(f"     bankroll {bankroll:.2f} CAD -> {bank_usd:.2f} USD")
+    return max_usd, bank_usd, rate
+
+
+def scan_plans(config: RunConfig, client: OddsApiClient, cache: OddsCache) -> tuple[list, list, list[str]]:
+    """Run the fetch + merge + optimize pipeline.
+
+    Returns ``(plans, games, warnings)`` so the ``auto`` command can reuse the
+    exact same scan as ``run_auto`` without duplicating it. Does not render or
+    save anything.
+    """
     token = TokenConstraint(
         token_type=TokenType.PROFIT_BOOST,
         token_book=config.token_book,
@@ -106,7 +147,7 @@ def run_auto(config: RunConfig, client: OddsApiClient, cache: OddsCache) -> int:
                 f"the {client.quota.remaining} credits remaining on your API key. "
                 "Use --no-fetch, --dry-run, or wait for your quota to reset."
             )
-            return 1
+            return [], [], warnings
     if warnings and not config.dry_run and not config.no_fetch:
         for warning in warnings:
             print(f"Warning: {warning}")
@@ -119,10 +160,19 @@ def run_auto(config: RunConfig, client: OddsApiClient, cache: OddsCache) -> int:
         force_fetch=config.recheck,
     )
     if not games:
-        print("No games with FanDuel/DraftKings odds were returned.")
-        return 1
+        print("No games with sportsbook odds were returned.")
+        return [], [], warnings
 
-    # Polymarket is always pulled automatically as a hedge venue.
+    games, started_count = filter_upcoming_games(games)
+    if started_count:
+        warnings.append(
+            f"Excluded {started_count} game(s) that have already started "
+            "(pre-game odds would be stale vs. live Polymarket prices)."
+        )
+    if not games:
+        print("No upcoming games with sportsbook odds were returned.")
+        return [], [], warnings
+
     polymarket_client = PolymarketClient(cache=cache, dry_run=config.dry_run)
     discovered, discovery_warnings = discover_event_mappings(
         config.sport_key,
@@ -142,6 +192,13 @@ def run_auto(config: RunConfig, client: OddsApiClient, cache: OddsCache) -> int:
     warnings.extend(polymarket_warnings)
 
     hedge_books = available_hedge_books(config.token_book)
+    # Build game_id -> Polymarket event slug so legs whose hedge is on
+    # Polymarket carry the slug + CLOB token id needed for auto-execution.
+    slug_by_game_id: dict[str, str] = {}
+    for mapping in discovered:
+        for game in games:
+            if {game.home_team, game.away_team} == {mapping.home_team, mapping.away_team}:
+                slug_by_game_id[game.id] = mapping.polymarket_event_slug
     plans = find_best_plans(
         games,
         token,
@@ -151,21 +208,44 @@ def run_auto(config: RunConfig, client: OddsApiClient, cache: OddsCache) -> int:
         min_gap_minutes=config.min_gap_minutes,
         market_key=market,
         optimize_for=config.optimize_for,
+        slug_by_game_id=slug_by_game_id,
+    )
+    return plans, games, warnings
+
+
+def run_auto(config: RunConfig, client: OddsApiClient, cache: OddsCache) -> int:
+    plans, games, warnings = scan_plans(config, client, cache)
+    token = TokenConstraint(
+        token_type=TokenType.PROFIT_BOOST,
+        token_book=config.token_book,
+        min_legs=config.min_legs,
+        max_stake=config.max_stake,
+        boost_pct=config.boost_pct,
+        boost_cap=None,
+        boosted_odds=None,
+        sport_key=config.sport_key,
     )
 
     ev_plans: list = []
     if config.show_ev and not plans:
         ev_plans = find_best_ev_plans(
-            games,
-            token,
-            config.leg_count,
-            hedge_books=hedge_books,
+            games=games,
+            token=token,
+            leg_count=config.leg_count,
+            hedge_books=available_hedge_books(config.token_book),
             bankroll=config.bankroll,
             min_gap_minutes=config.min_gap_minutes,
-            market_key=market,
+            market_key=config.market or DEFAULT_SCAN_MARKETS,
         )
 
-    render_report(plans, token, client.quota, ev_plans=ev_plans, warnings=warnings)
+    render_report(
+        plans,
+        token,
+        client.quota,
+        ev_plans=ev_plans,
+        warnings=warnings,
+        cad_rate=config.display_cad_rate,
+    )
 
     if config.save and plans:
         _save_plan(plans[0])
@@ -239,19 +319,26 @@ def collect_interactive_config(args: argparse.Namespace, client: OddsApiClient) 
 
     if args.max_stake is not None:
         max_stake = args.max_stake
-        print(f"(Step {step} skipped: using --max-stake ${max_stake:.2f})")
+        stake_ccy = "CAD" if getattr(args, "cad", True) else "USD"
+        print(f"(Step {step} skipped: using --max-stake {max_stake:.2f} {stake_ccy})")
         step += 1
     else:
+        stake_label = (
+            "What is the maximum token stake (CAD $)?"
+            if getattr(args, "cad", True)
+            else "What is the maximum token stake (USD $)?"
+        )
         max_stake = prompt_float_step(
             step,
             0,
-            "What is the maximum token stake ($)?",
+            stake_label,
             minimum=1.0,
         )
         step += 1
 
     market = args.market or DEFAULT_SCAN_MARKETS
     bankroll = args.bankroll
+    max_stake, bankroll, display_cad_rate = apply_cad_stakes(args, max_stake, bankroll)
     show_ev = False
     optimize_for = "profit"
 
@@ -280,19 +367,23 @@ def collect_interactive_config(args: argparse.Namespace, client: OddsApiClient) 
         min_gap_minutes=args.min_gap_minutes,
         cache_ttl=args.cache_ttl,
         api_key=args.api_key,
+        display_cad_rate=display_cad_rate,
     )
 
 
 def config_from_args(args: argparse.Namespace) -> RunConfig:
     leg_count = args.legs if args.legs is not None else DEFAULT_LEG_COUNT
+    max_stake, bankroll, display_cad_rate = apply_cad_stakes(
+        args, args.max_stake, args.bankroll
+    )
     return RunConfig(
         sport_key=args.sport,
         leg_count=leg_count,
         min_legs=leg_count,
         token_book=parse_token_book(args.token_book),
         boost_pct=args.boost if args.boost is not None else 0.0,
-        max_stake=args.max_stake,
-        bankroll=args.bankroll,
+        max_stake=max_stake,
+        bankroll=bankroll,
         show_ev=False,
         optimize_for="profit",
         dry_run=args.dry_run,
@@ -303,6 +394,7 @@ def config_from_args(args: argparse.Namespace) -> RunConfig:
         min_gap_minutes=args.min_gap_minutes,
         cache_ttl=args.cache_ttl,
         api_key=args.api_key,
+        display_cad_rate=display_cad_rate,
     )
 
 
@@ -367,14 +459,44 @@ def _save_plan(plan) -> None:
     print(f"Saved plan to {path}")
 
 
+def add_stake_currency_args(parser: argparse.ArgumentParser) -> None:
+    """Register ``--cad`` / ``--usd`` and ``--fx-rate`` (CAD is the default)."""
+    currency = parser.add_mutually_exclusive_group()
+    currency.add_argument(
+        "--cad",
+        dest="cad",
+        action="store_true",
+        help="Treat stakes as CAD; convert to USD for Polymarket sizing (default)",
+    )
+    currency.add_argument(
+        "--usd",
+        dest="cad",
+        action="store_false",
+        help="Treat stakes as USD; skip FX conversion",
+    )
+    parser.set_defaults(cad=True)
+    parser.add_argument(
+        "--fx-rate",
+        type=float,
+        default=None,
+        help="Manual USD/CAD rate (CAD per 1 USD); skip live fetch (default: CAD stakes)",
+    )
+
+
 # Re-export for callers that imported these names from the old cli module.
 __all__ = [
     "RunConfig",
     "run_auto",
+    "scan_plans",
     "collect_interactive_config",
     "config_from_args",
     "missing_batch_fields",
+    "resolve_display_cad_rate",
+    "apply_cad_stakes",
+    "add_stake_currency_args",
     "DEFAULT_LEG_COUNT",
+    "MIN_LEG_COUNT",
+    "MAX_LEG_COUNT",
     "DEFAULT_SCAN_MARKETS",
     "BOOK_LABELS",
     "ODDS_API_KEY",

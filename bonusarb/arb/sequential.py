@@ -52,6 +52,8 @@ def solve_sequential_hedge(
                 stake=hedge_stake,
                 place_by=place_by,
                 market_key=leg.market_key,
+                polymarket_event_slug=leg.polymarket_event_slug,
+                hedge_token_id=leg.hedge_token_id,
             )
         )
 
@@ -99,6 +101,39 @@ def _solve_locked_profit(
     locked_profit = (win_profit - beta_sum) / denominator
     hedge_stakes = [alphas[i] * locked_profit + betas[i] for i in range(n)]
     return locked_profit, hedge_stakes
+
+
+def recompute_remaining_hedges(
+    stake_cost: float,
+    win_profit: float,
+    remaining_hedge_odds: list[float],
+    already_placed_stakes: list[float],
+) -> tuple[float, list[float]]:
+    """Re-size the remaining hedges after line movement, given sunk hedges.
+
+    Once legs 1..k-1 have won and their hedges are placed (at whatever odds
+    they filled), the parlay is still alive and we must place hedges k..n at
+    *live* odds. The reachable paths are:
+
+      leg i (k <= i <= n) loses: hedge_i*(o_i-1) - sum(prior remaining) - sum_placed - stake_cost
+      all win:                  win_profit - sum(remaining) - sum_placed
+
+    (stake_cost is the sportsbook bet, lost on any losing path but returned on
+    the all-win path; sum_placed is the cash already spent on hedges 1..k-1,
+    which is lost regardless of path since those legs won and their hedges
+    expired worthless.)
+
+    Substituting ``stake_cost' = stake_cost + sum_placed`` and
+    ``win_profit' = win_profit - sum_placed`` reduces this to the original
+    closed-form recursion, which equalizes all remaining paths. Returns
+    ``(locked_profit, remaining_stakes)``.
+    """
+    sum_placed = sum(already_placed_stakes)
+    return _solve_locked_profit(
+        stake_cost + sum_placed,
+        win_profit - sum_placed,
+        remaining_hedge_odds,
+    )
 
 
 def verify_plan(plan: HedgePlan) -> tuple[bool, list[str]]:

@@ -8,11 +8,19 @@ from enum import Enum
 from typing import Literal
 
 
-BookmakerKey = Literal["fanduel", "draftkings", "polymarket"]
+BookmakerKey = Literal["fanduel", "draftkings", "betmgm", "espnbet", "polymarket"]
 
 # Books that can hold a bonus token. Polymarket is a prediction market, not a
 # sportsbook, so bonus tokens never live there; it is hedge-only.
-TOKEN_BOOKS: tuple[BookmakerKey, ...] = ("fanduel", "draftkings")
+# ``espnbet`` is The Odds API key for theScore Bet (formerly ESPN Bet).
+TOKEN_BOOKS: tuple[BookmakerKey, ...] = ("fanduel", "draftkings", "betmgm", "espnbet")
+
+# CLI aliases accepted by ``--token-book`` (normalized to TOKEN_BOOKS keys).
+TOKEN_BOOK_CLI_CHOICES: tuple[str, ...] = TOKEN_BOOKS + (
+    "thescore",
+    "thescorebet",
+    "the_score",
+)
 
 
 class TokenType(str, Enum):
@@ -24,6 +32,9 @@ class Outcome:
     name: str
     price: float
     point: float | None = None
+    # Polymarket CLOB token id for this outcome. Only set on outcomes sourced
+    # from the synthetic "polymarket" bookmaker; needed to place/watch orders.
+    token_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -65,6 +76,10 @@ class Leg:
     market_key: str = "h2h"
     token_point: float | None = None
     hedge_point: float | None = None
+    # Polymarket execution context. Only populated when hedge_book == "polymarket"
+    # so the auto-hedger can place and watch the hedge without re-discovering it.
+    polymarket_event_slug: str | None = None
+    hedge_token_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -92,6 +107,9 @@ class HedgeStep:
     stake: float
     place_by: datetime
     market_key: str = "h2h"
+    # Carried from Leg so the auto-hedger can place/watch this hedge directly.
+    polymarket_event_slug: str | None = None
+    hedge_token_id: str | None = None
 
 
 @dataclass(frozen=True)

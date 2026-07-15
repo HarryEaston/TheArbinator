@@ -44,11 +44,19 @@ def merge_polymarket_odds(
         if not mapping.verified:
             unverified_used += 1
 
+        # Resolve the sportsbook team names to Polymarket outcome names via the
+        # mapping, so get_game_markets' internal `set(outcomes) != teams` check
+        # passes even when the two feeds spell a team differently (e.g.
+        # "Portland Fire" vs "PortlandFire").
+        poly_home = mapping.outcome_by_team.get(game.home_team, game.home_team)
+        poly_away = mapping.outcome_by_team.get(game.away_team, game.away_team)
+        relabel = mapping.team_by_outcome
+
         try:
             game_markets = client.get_game_markets(
                 mapping.polymarket_event_slug,
-                game.home_team,
-                game.away_team,
+                poly_home,
+                poly_away,
                 allow_fetch=allow_fetch,
                 force_fetch=force_fetch,
             )
@@ -73,9 +81,10 @@ def merge_polymarket_odds(
                 key=market_key,
                 outcomes=tuple(
                     Outcome(
-                        name=outcome.name,
+                        name=relabel.get(outcome.name, outcome.name),
                         price=outcome.decimal_odds,
                         point=outcome.point,
+                        token_id=outcome.token_id,
                     )
                     for outcome in outcomes
                 ),
@@ -104,8 +113,8 @@ def merge_polymarket_odds(
 
     if any(POLYMARKET_BOOK_KEY in g.bookmakers for g in merged_games):
         warnings.append(
-            "Polymarket hedge odds use top-of-book prices and may have limited "
-            "liquidity; verify fill depth and slippage before placing hedges."
+            "Polymarket hedge odds are post–sports-taker-fee (top-of-book) and may "
+            "have limited liquidity; verify fill depth and slippage before placing hedges."
         )
     if unverified_used:
         warnings.append(

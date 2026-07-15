@@ -1,13 +1,19 @@
 """Command-line interface for Bonus Token Arbitrage Finder.
 
-Scans NHL / NFL / MLB / NBA boards on FanDuel and DraftKings for single-leg
-profit-boost token opportunities, automatically pulls Polymarket hedge odds for
-every matched game, and sizes a hedge that locks in profit.
+Scans NHL / NFL / MLB / NBA / WNBA / UFC boards on FanDuel,
+DraftKings, BetMGM, and theScore Bet for single-leg profit-boost token
+opportunities, automatically
+pulls Polymarket hedge odds for every matched game, and sizes a hedge that
+locks in profit.
+
+Run with the ``auto`` subcommand to hand a picked parlay off to the auto-hedger,
+which places sequential Polymarket hedges and live-tracks each leg's resolution.
 """
 
 from __future__ import annotations
 
 import argparse
+import sys
 
 from bonusarb.config import (
     DEFAULT_CACHE_TTL_SECONDS,
@@ -15,11 +21,15 @@ from bonusarb.config import (
     LEAGUES,
     ODDS_API_KEY,
 )
-from bonusarb.models import TOKEN_BOOKS
+from bonusarb.models import TOKEN_BOOK_CLI_CHOICES
 from bonusarb.oddsapi.client import OddsApiClient
 from bonusarb.oddsapi.cache import OddsCache
+from bonusarb.fx import FxError
 from bonusarb.runners import (
+    MAX_LEG_COUNT,
+    MIN_LEG_COUNT,
     RunConfig,
+    add_stake_currency_args,
     collect_interactive_config,
     config_from_args,
     missing_batch_fields,
@@ -29,7 +39,7 @@ from bonusarb.runners import (
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Find single-leg profit-boost token arbitrage for NHL/NFL/MLB/NBA.",
+        description="Find single-leg profit-boost token arbitrage for NHL/NFL/MLB/NBA/WNBA/UFC.",
         epilog="Run without flags for a guided step-by-step prompt.",
     )
     parser.add_argument(
@@ -40,11 +50,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--legs",
         type=int,
-        choices=[1, 2, 3],
+        choices=list(range(MIN_LEG_COUNT, MAX_LEG_COUNT + 1)),
         default=None,
-        help="Number of parlay legs (1-3; default 3 in --batch mode, prompted otherwise)",
+        help=(
+            f"Number of parlay legs ({MIN_LEG_COUNT}-{MAX_LEG_COUNT}; "
+            "default 3 in --batch mode, prompted otherwise)"
+        ),
     )
-    parser.add_argument("--token-book", choices=list(TOKEN_BOOKS), help="Book with the bonus token")
+    parser.add_argument(
+        "--token-book",
+        choices=list(TOKEN_BOOK_CLI_CHOICES),
+        help="Book with the bonus token (espnbet / thescore = theScore Bet)",
+    )
     parser.add_argument("--boost", type=float, help="Profit boost as decimal (0-5); 0 = standard arbitrage, e.g. 0.30")
     parser.add_argument("--max-stake", type=float, help="Maximum token stake")
     parser.add_argument("--bankroll", type=float, help="Optional hedge bankroll cap (unlimited if omitted)")
@@ -70,26 +87,44 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Force step-by-step prompts even when flags are provided",
     )
+    add_stake_currency_args(parser)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
+    raw_argv = sys.argv[1:] if argv is None else argv
+
+    # Route the `auto` subcommand to the auto-hedger without disturbing the
+    # existing flat-argparse flow so bare `python -m bonusarb` is unchanged.
+    if raw_argv and raw_argv[0] == "auto":
+        from bonusarb.auto.cli import auto_main
+
+        return auto_main(raw_argv[1:])
+
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(raw_argv)
 
     use_interactive = _should_use_interactive(args)
     cache = OddsCache(ttl_seconds=args.cache_ttl)
     client = OddsApiClient(api_key=args.api_key, cache=cache, dry_run=args.dry_run)
 
     if use_interactive:
-        config = collect_interactive_config(args, client)
+        try:
+            config = collect_interactive_config(args, client)
+        except FxError as exc:
+            print(f"FX error: {exc}")
+            return 1
     else:
         missing = missing_batch_fields(args)
         if missing:
             print("Batch mode requires: " + ", ".join(missing))
             print("Run without --batch for guided prompts, or pass the missing flags.")
             return 1
-        config = config_from_args(args)
+        try:
+            config = config_from_args(args)
+        except FxError as exc:
+            print(f"FX error: {exc}")
+            return 1
 
     assert isinstance(config, RunConfig)
     if config.dry_run:

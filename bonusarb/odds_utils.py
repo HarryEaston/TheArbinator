@@ -6,6 +6,39 @@ from bonusarb.display import format_selection
 from bonusarb.models import BookmakerKey, Game, Leg, Outcome
 
 
+POLYMARKET_BOOK = "polymarket"
+
+
+def _polymarket_hedge_token_id(
+    game: Game,
+    market_key: str,
+    hedge_name: str,
+    hedge_point: float | None,
+) -> str | None:
+    """Return the CLOB token id for a Polymarket hedge outcome, if present.
+
+    The synthetic "polymarket" bookmaker carries ``token_id`` on each outcome
+    (populated by ``merge_polymarket_odds``). We match by outcome name and, for
+    spreads/totals, by exact line so the auto-hedger can place/watch the right
+    market without re-discovering it.
+    """
+    bookmaker = game.bookmakers.get(POLYMARKET_BOOK)
+    if not bookmaker:
+        return None
+    market = bookmaker.markets.get(market_key)
+    if not market:
+        return None
+    for outcome in market.outcomes:
+        if outcome.name != hedge_name:
+            continue
+        if hedge_point is None:
+            return outcome.token_id
+        if outcome.point is None or abs(outcome.point - hedge_point) > 0.001:
+            continue
+        return outcome.token_id
+    return None
+
+
 def american_to_decimal(american: float) -> float:
     if american >= 100:
         return 1.0 + american / 100.0
@@ -273,6 +306,9 @@ def _make_leg(
     hedge_odds: float,
     token_point: float | None = None,
     hedge_point: float | None = None,
+    *,
+    polymarket_event_slug: str | None = None,
+    hedge_token_id: str | None = None,
 ) -> Leg:
     return Leg(
         game_id=game.id,
@@ -287,7 +323,24 @@ def _make_leg(
         market_key=market_key,
         token_point=token_point,
         hedge_point=hedge_point,
+        polymarket_event_slug=polymarket_event_slug,
+        hedge_token_id=hedge_token_id,
     )
+
+
+def _polymarket_context(
+    game: Game,
+    market_key: str,
+    hedge_book: BookmakerKey,
+    opposite_selection: str,
+    hedge_point: float | None,
+    slug_by_game_id: dict[str, str],
+) -> tuple[str | None, str | None]:
+    """Resolve (event_slug, hedge_token_id) when the hedge is on Polymarket."""
+    if hedge_book != POLYMARKET_BOOK:
+        return None, None
+    token_id = _polymarket_hedge_token_id(game, market_key, opposite_selection, hedge_point)
+    return slug_by_game_id.get(game.id), token_id
 
 
 def _token_odds_for_binary_team_selection(
@@ -316,6 +369,8 @@ def build_h2h_leg(
     selection: str,
     token_book: BookmakerKey,
     hedge_books: tuple[BookmakerKey, ...],
+    *,
+    slug_by_game_id: dict[str, str] | None = None,
 ) -> Leg | None:
     token_quote = _token_odds_for_binary_team_selection(
         game,
@@ -335,6 +390,9 @@ def build_h2h_leg(
     if opposite is None:
         return None
 
+    slug, token_id = _polymarket_context(
+        game, "h2h", hedge_book, opposite, None, slug_by_game_id or {}
+    )
     return _make_leg(
         game,
         "h2h",
@@ -344,6 +402,8 @@ def build_h2h_leg(
         token_odds,
         hedge_book,
         hedge_odds,
+        polymarket_event_slug=slug,
+        hedge_token_id=token_id,
     )
 
 
@@ -352,6 +412,8 @@ def build_to_advance_leg(
     selection: str,
     token_book: BookmakerKey,
     hedge_books: tuple[BookmakerKey, ...],
+    *,
+    slug_by_game_id: dict[str, str] | None = None,
 ) -> Leg | None:
     token_quote = _token_odds_for_binary_team_selection(
         game,
@@ -371,15 +433,21 @@ def build_to_advance_leg(
     if opposite is None:
         return None
 
+    # The hedge is resolved on the same binary market the token side uses.
+    slug, token_id = _polymarket_context(
+        game, token_market_key, hedge_book, opposite, None, slug_by_game_id or {}
+    )
     return _make_leg(
         game,
-        "to_advance",
+        token_market_key,
         selection,
         opposite,
         token_book,
         token_odds,
         hedge_book,
         hedge_odds,
+        polymarket_event_slug=slug,
+        hedge_token_id=token_id,
     )
 
 
@@ -388,6 +456,8 @@ def build_spread_leg(
     token_outcome: Outcome,
     token_book: BookmakerKey,
     hedge_books: tuple[BookmakerKey, ...],
+    *,
+    slug_by_game_id: dict[str, str] | None = None,
 ) -> Leg | None:
     if not is_two_way_market(game, token_book, "spreads"):
         return None
@@ -402,6 +472,9 @@ def build_spread_leg(
     if opposite is None:
         return None
 
+    slug, token_id = _polymarket_context(
+        game, "spreads", hedge_book, opposite, hedge_outcome.point, slug_by_game_id or {}
+    )
     return _make_leg(
         game,
         "spreads",
@@ -413,6 +486,8 @@ def build_spread_leg(
         hedge_outcome.price,
         token_point=token_outcome.point,
         hedge_point=hedge_outcome.point,
+        polymarket_event_slug=slug,
+        hedge_token_id=token_id,
     )
 
 
@@ -421,6 +496,8 @@ def build_total_leg(
     token_outcome: Outcome,
     token_book: BookmakerKey,
     hedge_books: tuple[BookmakerKey, ...],
+    *,
+    slug_by_game_id: dict[str, str] | None = None,
 ) -> Leg | None:
     if not is_two_way_market(game, token_book, "totals"):
         return None
@@ -435,6 +512,9 @@ def build_total_leg(
     hedge_book, hedge_outcome = hedge
     hedge_name = "Under" if token_outcome.name == "Over" else "Over"
 
+    slug, token_id = _polymarket_context(
+        game, "totals", hedge_book, hedge_name, hedge_outcome.point, slug_by_game_id or {}
+    )
     return _make_leg(
         game,
         "totals",
@@ -446,6 +526,8 @@ def build_total_leg(
         hedge_outcome.price,
         token_point=token_outcome.point,
         hedge_point=hedge_outcome.point,
+        polymarket_event_slug=slug,
+        hedge_token_id=token_id,
     )
 
 
@@ -455,11 +537,13 @@ def build_leg(
     token_book: BookmakerKey,
     hedge_books: tuple[BookmakerKey, ...],
     market_key: str = "h2h",
+    *,
+    slug_by_game_id: dict[str, str] | None = None,
 ) -> Leg | None:
     if market_key == "h2h":
-        return build_h2h_leg(game, selection, token_book, hedge_books)
+        return build_h2h_leg(game, selection, token_book, hedge_books, slug_by_game_id=slug_by_game_id)
     if market_key == "to_advance":
-        return build_to_advance_leg(game, selection, token_book, hedge_books)
+        return build_to_advance_leg(game, selection, token_book, hedge_books, slug_by_game_id=slug_by_game_id)
     return None
 
 
@@ -468,17 +552,20 @@ def enumerate_game_legs(
     token_book: BookmakerKey,
     hedge_books: tuple[BookmakerKey, ...],
     market_keys: tuple[str, ...],
+    *,
+    slug_by_game_id: dict[str, str] | None = None,
 ) -> list[Leg]:
+    slug_by_game_id = slug_by_game_id or {}
     legs: list[Leg] = []
     for market_key in market_keys:
         if market_key == "h2h":
             for team in (game.home_team, game.away_team):
-                leg = build_h2h_leg(game, team, token_book, hedge_books)
+                leg = build_h2h_leg(game, team, token_book, hedge_books, slug_by_game_id=slug_by_game_id)
                 if leg is not None:
                     legs.append(leg)
         elif market_key == "to_advance":
             for team in (game.home_team, game.away_team):
-                leg = build_to_advance_leg(game, team, token_book, hedge_books)
+                leg = build_to_advance_leg(game, team, token_book, hedge_books, slug_by_game_id=slug_by_game_id)
                 if leg is not None:
                     legs.append(leg)
         elif market_key == "spreads":
@@ -489,7 +576,7 @@ def enumerate_game_legs(
             if not market:
                 continue
             for outcome in market.outcomes:
-                leg = build_spread_leg(game, outcome, token_book, hedge_books)
+                leg = build_spread_leg(game, outcome, token_book, hedge_books, slug_by_game_id=slug_by_game_id)
                 if leg is not None:
                     legs.append(leg)
         elif market_key == "totals":
@@ -500,7 +587,7 @@ def enumerate_game_legs(
             if not market:
                 continue
             for outcome in market.outcomes:
-                leg = build_total_leg(game, outcome, token_book, hedge_books)
+                leg = build_total_leg(game, outcome, token_book, hedge_books, slug_by_game_id=slug_by_game_id)
                 if leg is not None:
                     legs.append(leg)
     return legs
