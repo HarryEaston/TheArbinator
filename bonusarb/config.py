@@ -37,6 +37,13 @@ POLYMARKET_CHAIN_ID = int(os.getenv("POLYMARKET_CHAIN_ID", "137"))
 POLYMARKET_SPORTS_TAKER_FEE_RATE = float(
     os.getenv("POLYMARKET_SPORTS_TAKER_FEE_RATE", "0.05")
 )
+# Minimum all-time trading volume (USD) a single Polymarket market (moneyline,
+# or an individual spread/total line) must have to be used as a hedge. Thin
+# markets (e.g. a few hundred dollars of volume) look attractive on paper but
+# can't absorb a real hedge stake without heavy slippage. Checked per-market
+# (not per-event), since one game's moneyline can be liquid while its spread/
+# totals lines are not.
+POLYMARKET_MIN_VOLUME_USD = float(os.getenv("POLYMARKET_MIN_VOLUME_USD", "10000"))
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")

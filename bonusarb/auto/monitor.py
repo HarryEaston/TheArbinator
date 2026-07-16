@@ -48,11 +48,6 @@ def run_monitor(
 ) -> ActiveParlay:
     parlay.status = "active"
     parlay.save()
-    notifier.send(
-        f"Auto-hedger started for parlay {parlay.id} "
-        f"({len(parlay.legs)} legs, planned locked="
-        f"{format_sportsbook_amount(parlay.locked_profit_plan, parlay.usd_cad_rate)})."
-    )
 
     while True:
         leg = _current_leg(parlay)

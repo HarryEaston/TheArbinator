@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import Sequence
 
+from bonusarb.config import POLYMARKET_MIN_VOLUME_USD
 from bonusarb.models import BookmakerOdds, Game, Market, Outcome
 from bonusarb.polymarket.client import PolymarketClient, PolymarketError
 from bonusarb.polymarket.mappings import EventMapping, find_mapping
@@ -34,6 +35,7 @@ def merge_polymarket_odds(
     warnings: list[str] = []
     merged_games: list[Game] = []
     unverified_used = 0
+    low_volume_skipped_total = 0
 
     for game in games:
         mapping = find_mapping(game, mappings)
@@ -68,13 +70,22 @@ def merge_polymarket_odds(
             continue
 
         if game_markets is None or not game_markets.markets:
-            warnings.append(
-                f"Polymarket markets for {mapping.polymarket_event_slug} "
-                f"({game.away_team} @ {game.home_team}) were not available; skipped."
-            )
+            if game_markets is not None and game_markets.low_volume_skipped:
+                low_volume_skipped_total += game_markets.low_volume_skipped
+                warnings.append(
+                    f"Polymarket markets for {mapping.polymarket_event_slug} "
+                    f"({game.away_team} @ {game.home_team}) were all below the "
+                    f"${POLYMARKET_MIN_VOLUME_USD:,.0f} minimum volume; skipped."
+                )
+            else:
+                warnings.append(
+                    f"Polymarket markets for {mapping.polymarket_event_slug} "
+                    f"({game.away_team} @ {game.home_team}) were not available; skipped."
+                )
             merged_games.append(game)
             continue
 
+        low_volume_skipped_total += game_markets.low_volume_skipped
         polymarket_markets: dict[str, Market] = {}
         for market_key, outcomes in game_markets.markets.items():
             polymarket_markets[market_key] = Market(
@@ -120,6 +131,12 @@ def merge_polymarket_odds(
         warnings.append(
             f"{unverified_used} Polymarket mapping(s) are unverified (e.g. auto-discovered). "
             "Confirm each market settles exactly like your sportsbook bet before betting."
+        )
+    if low_volume_skipped_total:
+        warnings.append(
+            f"{low_volume_skipped_total} Polymarket market(s) skipped for having under "
+            f"${POLYMARKET_MIN_VOLUME_USD:,.0f} in trading volume (too thin to reliably "
+            "hedge)."
         )
 
     return merged_games, warnings

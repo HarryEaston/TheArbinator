@@ -358,6 +358,7 @@ def test_get_game_markets_parses_mlb_moneyline_as_h2h():
                         "outcomes": '["Baltimore Orioles", "Cincinnati Reds"]',
                         "clobTokenIds": '["a", "b"]',
                         "outcomePrices": '["0.52", "0.48"]',
+                        "volumeNum": 50000,
                     }
                 ],
             }

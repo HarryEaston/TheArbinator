@@ -28,7 +28,7 @@ from typing import Any
 
 import requests
 
-from bonusarb.config import POLYMARKET_SPORTS_TAKER_FEE_RATE
+from bonusarb.config import POLYMARKET_MIN_VOLUME_USD, POLYMARKET_SPORTS_TAKER_FEE_RATE
 from bonusarb.oddsapi.cache import OddsCache
 
 
@@ -61,6 +61,23 @@ def share_price_to_decimal_odds(
 ) -> float:
     """Convert a Polymarket share price (0, 1) to post-fee taker decimal odds."""
     return 1.0 / effective_taker_share_price(price, fee_rate=fee_rate)
+
+
+def _market_volume_usd(market: dict[str, Any]) -> float:
+    """All-time trading volume (USD) for a single Gamma market.
+
+    Prefers the numeric ``volumeNum`` field; falls back to parsing the
+    string ``volume`` field. Missing/unparseable values are treated as 0
+    (thinnest possible), so a market with no volume data is filtered out
+    rather than assumed liquid.
+    """
+    raw = market.get("volumeNum")
+    if raw is None:
+        raw = market.get("volume")
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _parse_stringified_array(value: Any) -> list[Any]:
@@ -104,6 +121,9 @@ class PolymarketGameMarkets:
     event_slug: str
     markets: dict[str, tuple[PolymarketOutcomeOdds, ...]]
     last_update: datetime | None = None
+    # Count of raw markets (moneyline / a spread line / a total line) dropped
+    # for having less than ``min_volume_usd`` in trading volume.
+    low_volume_skipped: int = 0
 
 
 class PolymarketMarket:
@@ -134,11 +154,13 @@ class PolymarketClient:
         dry_run: bool = False,
         sample_markets: dict[str, dict[str, Any]] | None = None,
         session: requests.Session | None = None,
+        min_volume_usd: float = POLYMARKET_MIN_VOLUME_USD,
     ) -> None:
         self.cache = cache or OddsCache()
         self.dry_run = dry_run
         self._sample_markets = sample_markets or {}
         self.session = session or requests.Session()
+        self.min_volume_usd = min_volume_usd
 
     def get_game_markets(
         self,
@@ -184,13 +206,13 @@ class PolymarketClient:
             return None
 
         teams = {home_team, away_team}
-        parsed = self._parse_game_markets(
+        parsed, low_volume_skipped = self._parse_game_markets(
             raw_markets,
             teams,
             allow_fetch=allow_fetch,
             force_fetch=force_fetch,
         )
-        if not parsed:
+        if not parsed and low_volume_skipped == 0:
             return None
 
         last_update = max(
@@ -201,6 +223,7 @@ class PolymarketClient:
             event_slug=event_slug,
             markets=parsed,
             last_update=last_update,
+            low_volume_skipped=low_volume_skipped,
         )
 
     def get_market(
@@ -231,6 +254,8 @@ class PolymarketClient:
             return None
         market = raw[0] if isinstance(raw, list) else raw
         if not market or market.get("closed"):
+            return None
+        if _market_volume_usd(market) < self.min_volume_usd:
             return None
 
         outcomes = _parse_stringified_array(market.get("outcomes"))
@@ -360,13 +385,20 @@ class PolymarketClient:
         *,
         allow_fetch: bool,
         force_fetch: bool = False,
-    ) -> dict[str, tuple[PolymarketOutcomeOdds, ...]]:
+    ) -> tuple[dict[str, tuple[PolymarketOutcomeOdds, ...]], int]:
         parsed: dict[str, tuple[PolymarketOutcomeOdds, ...]] = {}
         spread_sides: dict[tuple[str, float], PolymarketOutcomeOdds] = {}
         total_sides: dict[tuple[str, float], PolymarketOutcomeOdds] = {}
+        low_volume_skipped = 0
 
         for market in raw_markets:
             if market.get("closed"):
+                continue
+
+            # Drop markets too thin to reliably fill a hedge stake before
+            # they ever reach the per-type parsers below.
+            if _market_volume_usd(market) < self.min_volume_usd:
+                low_volume_skipped += 1
                 continue
 
             sports_type = market.get("sportsMarketType")
@@ -388,7 +420,7 @@ class PolymarketClient:
         if total_sides:
             parsed["totals"] = tuple(total_sides[key] for key in sorted(total_sides))
 
-        return parsed
+        return parsed, low_volume_skipped
 
     def _parse_binary_team_market(
         self,

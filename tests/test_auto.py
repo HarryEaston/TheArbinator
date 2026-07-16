@@ -333,6 +333,50 @@ def test_resume_never_double_places(tmp_path: Path, monkeypatch):
     assert result.legs[1].status == LEG_PENDING
 
 
+def test_run_monitor_does_not_send_started_notification(tmp_path: Path, monkeypatch):
+    """run_monitor must not emit the one-time 'started' message on each poll."""
+    monkeypatch.setattr("bonusarb.auto.state.STATE_DIR", tmp_path)
+    from bonusarb.auto import monitor as monitor_mod
+
+    plan = _two_leg_plan()
+    parlay = ActiveParlay.from_plan(plan, sport_key="basketball_nba")
+    parlay.legs[0].order_id = "ord-1"
+    parlay.legs[0].filled_shares = 10.0
+    parlay.legs[0].filled_price = 0.5
+    parlay.legs[0].filled_cost = 5.0
+    parlay.legs[0].status = LEG_HEDGE_PLACED
+    parlay.save()
+
+    class _PendingWatcher:
+        def resolve(self, token_id):
+            from bonusarb.auto.watcher import LegResolution
+            return LegResolution(PENDING, None)
+
+    class _RecordingNotifier:
+        def __init__(self) -> None:
+            self.messages: list[str] = []
+
+        def send(self, text: str) -> bool:
+            self.messages.append(text)
+            return True
+
+    notifier = _RecordingNotifier()
+    cfg = AutoConfig.from_env()
+
+    for _ in range(2):
+        monitor_mod.run_monitor(
+            parlay, _FailingExecutor(), _PendingWatcher(), notifier, cfg
+        )
+
+    started = [m for m in notifier.messages if "Auto-hedger started" in m]
+    assert started == []
+
+
+class _FailingExecutor:
+    def place_hedge(self, leg, context):
+        raise AssertionError("should not place hedge in this test")
+
+
 # ---------------------------------------------------------------------------
 # 4. Executor: paper fill, profit-floor skip, mocked live fill
 # ---------------------------------------------------------------------------

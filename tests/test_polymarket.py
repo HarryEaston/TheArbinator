@@ -34,6 +34,7 @@ def _polymarket_game_samples(
             "clobTokenIds": '["token-ml-celtics", "token-ml-lakers"]',
             "outcomePrices": f'[{home_price}, {away_price}]',
             "lastUpdate": "2026-03-01T00:00:00Z",
+            "volumeNum": 50000,
         }
     ]
     samples = {
@@ -66,6 +67,7 @@ def _polymarket_game_samples(
                 "clobTokenIds": '["token-spread-celtics", "token-spread-lakers"]',
                 "outcomePrices": '["0.52", "0.48"]',
                 "lastUpdate": "2026-03-01T00:00:00Z",
+                "volumeNum": 15000,
             }
         )
         samples["price:token-spread-celtics"] = {"price": "0.52"}
@@ -82,6 +84,7 @@ def _polymarket_game_samples(
                 "clobTokenIds": '["token-total-over", "token-total-under"]',
                 "outcomePrices": '["0.5", "0.5"]',
                 "lastUpdate": "2026-03-01T00:00:00Z",
+                "volumeNum": 15000,
             }
         )
         samples["price:token-total-over"] = {"price": "0.5"}
@@ -214,6 +217,7 @@ def test_polymarket_client_parses_stringified_gamma_fields_and_clob_prices():
         "clobTokenIds": '["token-celtics", "token-lakers"]',
         "outcomePrices": '[0.65, 0.35]',
         "lastUpdate": "2026-03-01T00:00:00Z",
+        "volumeNum": 50000,
     }
     sample_prices = {
         "price:token-celtics": {"price": "0.65"},
@@ -353,6 +357,83 @@ def test_spread_leg_can_use_polymarket_hedge_at_matching_line():
     celtics_legs = [leg for leg in candidates if leg.selection == "Celtics"]
     assert celtics_legs
     assert celtics_legs[0].hedge_book == "polymarket"
+
+
+def test_low_volume_moneyline_market_is_filtered_out():
+    samples = _polymarket_game_samples()
+    # Drop the moneyline market's volume to the level from a real thin WNBA
+    # game (e.g. Portland Fire @ Washington Mystics at ~$160 of volume).
+    samples["game_events:71000001"][0]["markets"][0]["volumeNum"] = 160
+
+    client = PolymarketClient(dry_run=True, sample_markets=samples)
+    parsed = client.get_game_markets(
+        "nba-bos-lal-2026-03-01", "Celtics", "Lakers", allow_fetch=False
+    )
+
+    assert parsed is not None
+    assert "h2h" not in parsed.markets
+    # Spreads/totals still have plenty of volume in the fixture, so they survive.
+    assert "spreads" in parsed.markets
+    assert parsed.low_volume_skipped == 1
+
+
+def test_low_volume_market_respects_custom_threshold():
+    samples = _polymarket_game_samples()
+    samples["game_events:71000001"][0]["markets"][0]["volumeNum"] = 160
+
+    # A caller-supplied threshold below the market's volume should keep it.
+    client = PolymarketClient(dry_run=True, sample_markets=samples, min_volume_usd=100.0)
+    parsed = client.get_game_markets(
+        "nba-bos-lal-2026-03-01", "Celtics", "Lakers", allow_fetch=False
+    )
+
+    assert parsed is not None
+    assert "h2h" in parsed.markets
+    assert parsed.low_volume_skipped == 0
+
+
+def test_all_markets_below_volume_threshold_yields_no_polymarket_markets():
+    samples = _polymarket_game_samples(include_spreads=False, include_totals=False)
+    samples["game_events:71000001"][0]["markets"][0]["volumeNum"] = 160
+
+    client = PolymarketClient(dry_run=True, sample_markets=samples)
+    parsed = client.get_game_markets(
+        "nba-bos-lal-2026-03-01", "Celtics", "Lakers", allow_fetch=False
+    )
+
+    assert parsed is not None
+    assert parsed.markets == {}
+    assert parsed.low_volume_skipped == 1
+
+
+def test_merge_warns_and_skips_when_all_markets_below_volume_threshold():
+    samples = _polymarket_game_samples(include_spreads=False, include_totals=False)
+    samples["game_events:71000001"][0]["markets"][0]["volumeNum"] = 160
+    game = _nba_game()
+    client = PolymarketClient(dry_run=True, sample_markets=samples)
+
+    merged, warnings = merge_polymarket_odds(
+        [game], [_mapping()], client, allow_fetch=False
+    )
+
+    assert "polymarket" not in merged[0].bookmakers
+    assert any("minimum volume" in w.lower() for w in warnings)
+
+
+def test_merge_warns_when_some_markets_below_volume_threshold():
+    samples = _polymarket_game_samples()
+    samples["game_events:71000001"][0]["markets"][0]["volumeNum"] = 160
+    game = _nba_game()
+    client = PolymarketClient(dry_run=True, sample_markets=samples)
+
+    merged, warnings = merge_polymarket_odds(
+        [game], [_mapping()], client, allow_fetch=False
+    )
+
+    polymarket = merged[0].bookmakers["polymarket"]
+    assert "h2h" not in polymarket.markets
+    assert "spreads" in polymarket.markets
+    assert any("under $10,000" in w.lower() for w in warnings)
 
 
 def test_polymarket_market_decimal_odds_for_missing_team_returns_none():

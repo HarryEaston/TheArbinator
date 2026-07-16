@@ -54,7 +54,7 @@ from bonusarb.config import (
     LEAGUES,
     ODDS_API_KEY,
 )
-from bonusarb.fx import FxError
+from bonusarb.fx import FxError, format_sportsbook_amount
 from bonusarb.models import TOKEN_BOOK_CLI_CHOICES, TokenConstraint, TokenType
 from bonusarb.oddsapi.cache import OddsCache
 from bonusarb.oddsapi.client import OddsApiClient
@@ -201,6 +201,11 @@ def auto_main(argv: list[str]) -> int:
         f"Starting monitor loop ({'paper' if paper else 'LIVE'} mode, "
         f"poll every {auto_config.poll_interval_seconds:.0f}s). Ctrl+C to stop; "
         f"re-run with `--resume {parlay.id}` to continue."
+    )
+    notifier.send(
+        f"Auto-hedger started for parlay {parlay.id} "
+        f"({len(parlay.legs)} legs, planned locked="
+        f"{format_sportsbook_amount(parlay.locked_profit_plan, parlay.usd_cad_rate)})."
     )
     try:
         return _run_loop(parlay, executor, watcher, notifier, auto_config)
