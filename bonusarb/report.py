@@ -6,13 +6,15 @@ from rich.console import Console, Group
 from rich.panel import Panel
 from rich.table import Table
 
-from bonusarb.display import format_display_time, format_event_cell, market_label
+from bonusarb.display import format_display_time, format_event_cell, format_selection, market_label
 from bonusarb.fx import (
+    cad_to_usd,
     format_hedge_stake,
     format_sportsbook_amount,
     format_usd_amount,
 )
-from bonusarb.models import HedgePlan, QuotaInfo, TokenConstraint, TokenType
+from bonusarb.config import ARB_LEAGUES, LEAGUES
+from bonusarb.models import HedgePlan, QuotaInfo, TokenConstraint, TokenType, TwoWayArb
 from bonusarb.odds_utils import decimal_to_american, leg_selection_display
 from bonusarb.tokens import effective_combined_odds
 
@@ -48,6 +50,138 @@ def render_report(
 
     for index, plan in enumerate(plans, start=1):
         console.print(_plan_panel(plan, title=f"Guaranteed Plan {index}", cad_rate=cad_rate))
+
+
+def render_arb_report(
+    arbs: list[TwoWayArb],
+    quota: QuotaInfo,
+    *,
+    capital: float,
+    sport_keys: tuple[str, ...],
+    warnings: list[str] | None = None,
+    cad_rate: float | None = None,
+) -> None:
+    console = Console()
+    console.print()
+    console.print(
+        _arb_header_panel(
+            quota,
+            capital=capital,
+            sport_keys=sport_keys,
+            warnings=warnings or [],
+            cad_rate=cad_rate,
+        )
+    )
+
+    if not arbs:
+        console.print("[yellow]No positive-edge 1-leg arbitrage found.[/yellow]")
+        return
+
+    for index, arb in enumerate(arbs, start=1):
+        console.print(
+            _arb_panel(arb, title=f"Arb #{index}  (ROI {arb.roi * 100:.2f}%)", cad_rate=cad_rate)
+        )
+
+
+def _league_names(sport_keys: tuple[str, ...]) -> str:
+    names_by_key = {key: name for key, name in LEAGUES}
+    names_by_key.update({key: name for key, name in ARB_LEAGUES})
+    return ", ".join(names_by_key.get(key, key) for key in sport_keys)
+
+
+def _arb_header_panel(
+    quota: QuotaInfo,
+    *,
+    capital: float,
+    sport_keys: tuple[str, ...],
+    warnings: list[str],
+    cad_rate: float | None,
+) -> Panel:
+    capital_label = (
+        f"{capital:.2f} CAD"
+        if cad_rate is not None and cad_rate > 0
+        else f"{capital:.2f} USD"
+    )
+    lines = [
+        f"Leagues: [bold]{_league_names(sport_keys)}[/bold]",
+        f"Capital: [bold]{capital_label}[/bold] (split across both sides)",
+        "Mode: 1-leg all-pairs (sportsbooks + Polymarket)",
+    ]
+    if quota.remaining is not None:
+        lines.append(f"API credits remaining: {quota.remaining}")
+    if quota.used is not None:
+        lines.append(f"API credits used: {quota.used}")
+    if quota.last_cost is not None:
+        lines.append(f"Last request cost: {quota.last_cost}")
+    for warning in warnings:
+        lines.append(f"[yellow]Warning:[/yellow] {warning}")
+    return Panel("\n".join(lines), title="General 1-Leg Arbitrage Finder", border_style="blue")
+
+
+def _format_arb_stake(stake: float, book: str, cad_rate: float | None) -> str:
+    """Format a stake: sportsbooks in capital currency; Polymarket in USD when CAD."""
+    if book == "polymarket":
+        if cad_rate is not None and cad_rate > 0:
+            return format_usd_amount(cad_to_usd(stake, cad_rate))
+        return format_usd_amount(stake)
+    if cad_rate is not None and cad_rate > 0:
+        return f"${stake:.2f} CAD"
+    return f"${stake:.2f} USD"
+
+
+def _arb_panel(arb: TwoWayArb, title: str, *, cad_rate: float | None = None) -> Panel:
+    sides = Table(title="Place both sides now", show_header=True, header_style="bold")
+    sides.add_column("Side", justify="right")
+    sides.add_column("Book")
+    sides.add_column("Market")
+    sides.add_column("Selection")
+    sides.add_column("Odds (Dec)")
+    sides.add_column("Odds (Am)")
+    sides.add_column("Stake")
+
+    for label, book, selection, odds, point, stake in (
+        ("A", arb.book_a, arb.selection_a, arb.odds_a, arb.point_a, arb.stake_a),
+        ("B", arb.book_b, arb.selection_b, arb.odds_b, arb.point_b, arb.stake_b),
+    ):
+        book_label = BOOK_LABELS.get(book, book)
+        if book == "polymarket":
+            book_label = "Polymarket (buy shares)"
+        sides.add_row(
+            label,
+            book_label,
+            market_label(arb.market_key),
+            format_selection(arb.market_key, selection, point),
+            f"{odds:.2f}",
+            str(decimal_to_american(odds)),
+            _format_arb_stake(stake, book, cad_rate),
+        )
+
+    capital_label = (
+        f"${arb.capital:.2f} CAD"
+        if cad_rate is not None and cad_rate > 0
+        else f"${arb.capital:.2f} USD"
+    )
+    profit_label = (
+        f"${arb.locked_profit:.2f} CAD"
+        if cad_rate is not None and cad_rate > 0
+        else f"${arb.locked_profit:.2f} USD"
+    )
+
+    footer_lines = [
+        f"Event: {format_event_cell(arb.event_label, arb.commence_time)}",
+        f"Edge: {arb.edge * 100:.2f}%",
+        f"Locked profit (worst path): [green]{profit_label}[/green]",
+        f"Capital used: {capital_label}",
+        f"ROI: [bold]{arb.roi * 100:.2f}%[/bold]",
+        "Place both sides simultaneously (not sequential).",
+    ]
+    if arb.book_a == "polymarket" or arb.book_b == "polymarket":
+        footer_lines.append(
+            "[dim]Polymarket side is manual for now (auto-hedger wiring later).[/dim]"
+        )
+
+    content = Group(sides, "\n".join(footer_lines))
+    return Panel(content, title=title, border_style="green")
 
 
 def _token_panel(

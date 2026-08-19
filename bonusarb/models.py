@@ -35,6 +35,8 @@ class Outcome:
     # Polymarket CLOB token id for this outcome. Only set on outcomes sourced
     # from the synthetic "polymarket" bookmaker; needed to place/watch orders.
     token_id: str | None = None
+    # ``clob`` or ``gamma_fallback`` when sourced from Polymarket.
+    price_source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -80,6 +82,8 @@ class Leg:
     # so the auto-hedger can place and watch the hedge without re-discovering it.
     polymarket_event_slug: str | None = None
     hedge_token_id: str | None = None
+    # ``clob`` vs ``gamma_fallback`` for the hedge quote (actionable only if clob).
+    hedge_price_source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -110,6 +114,7 @@ class HedgeStep:
     # Carried from Leg so the auto-hedger can place/watch this hedge directly.
     polymarket_event_slug: str | None = None
     hedge_token_id: str | None = None
+    hedge_price_source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -140,3 +145,32 @@ class QuotaInfo:
             used=other.used if other.used is not None else self.used,
             last_cost=other.last_cost if other.last_cost is not None else self.last_cost,
         )
+
+
+@dataclass(frozen=True)
+class TwoWayArb:
+    """A simultaneous two-sided (1-leg) arbitrage opportunity."""
+
+    sport_key: str
+    game_id: str
+    event_label: str
+    commence_time: datetime
+    market_key: str
+    book_a: BookmakerKey
+    selection_a: str
+    odds_a: float
+    point_a: float | None
+    stake_a: float
+    book_b: BookmakerKey
+    selection_b: str
+    odds_b: float
+    point_b: float | None
+    stake_b: float
+    capital: float
+    locked_profit: float
+    roi: float
+    edge: float
+    # Polymarket CLOB context when either side is polymarket (manual for v1).
+    polymarket_event_slug: str | None = None
+    token_id_a: str | None = None
+    token_id_b: str | None = None

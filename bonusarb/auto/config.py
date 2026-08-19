@@ -11,6 +11,7 @@ from bonusarb.config import (
     AUTO_MIN_ORDER_SHARES,
     AUTO_ORDER_FILL_SECONDS,
     AUTO_POLL_INTERVAL_SECONDS,
+    AUTO_RESOLUTION_CONFIRM_POLLS,
     AUTO_WON_THRESHOLD,
     POLYMARKET_CHAIN_ID,
     POLYMARKET_CLOB_HOST,
@@ -45,6 +46,7 @@ class AutoConfig:
     lost_threshold: float
     min_order_shares: float
     order_fill_seconds: int
+    resolution_confirm_polls: int
 
     @property
     def live_enabled(self) -> bool:
@@ -72,4 +74,5 @@ class AutoConfig:
             lost_threshold=AUTO_LOST_THRESHOLD,
             min_order_shares=AUTO_MIN_ORDER_SHARES,
             order_fill_seconds=AUTO_ORDER_FILL_SECONDS,
+            resolution_confirm_polls=AUTO_RESOLUTION_CONFIRM_POLLS,
         )

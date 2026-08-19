@@ -10,13 +10,8 @@ Polymarket-hedgeable plans, lets you pick one, confirms the sportsbook bet is
 placed by hand, and hands off to the monitor loop.
 
 Paper mode is the default: it simulates fills and never touches the CLOB SDK or
-your wallet. Pass ``--live`` to arm real order placement.
-
-Each run only tracks a single parlay, but nothing stops you from running
-several ``auto`` processes at once (one per terminal) to hedge multiple
-parlays in parallel. ``--list`` shows every in-progress parlay's id so a
-crashed/closed terminal can be resumed with ``--resume PARLAY_ID`` instead of
-only ever resuming the most recent one.
+your wallet. Pass ``--live`` to arm real order placement. The chosen mode is
+persisted on the parlay so ``--resume`` cannot silently switch paper <-> live.
 """
 
 from __future__ import annotations
@@ -36,7 +31,10 @@ from bonusarb.auto.select import (
     scan_automatable_plans,
 )
 from bonusarb.auto.state import (
+    MODE_LIVE,
+    MODE_PAPER,
     ActiveParlay,
+    ParlayLock,
     latest_parlay_path,
     list_in_progress_parlays,
     load_parlay,
@@ -48,6 +46,7 @@ from bonusarb.config import (
     AUTO_MAX_SLIPPAGE,
     AUTO_MIN_LOCKED_PROFIT_FLOOR,
     AUTO_POLL_INTERVAL_SECONDS,
+    AUTO_RESOLUTION_CONFIRM_POLLS,
     AUTO_WON_THRESHOLD,
     DEFAULT_CACHE_TTL_SECONDS,
     DEFAULT_MIN_GAP_MINUTES,
@@ -122,7 +121,7 @@ def build_auto_parser() -> argparse.ArgumentParser:
             "Resume an in-progress parlay instead of scanning. With no id, "
             "resumes the most recently created one in state/; pass a specific "
             "id (see `auto --list`) to resume one of several parlays running "
-            "at once."
+            "at once. Mode defaults to the mode saved on the parlay."
         ),
     )
     parser.add_argument(
@@ -150,6 +149,15 @@ def build_auto_parser() -> argparse.ArgumentParser:
         default=AUTO_LOST_THRESHOLD,
         help="Declare leg LOST (stop) when hedge price >= this (default 0.97)",
     )
+    parser.add_argument(
+        "--confirm-polls",
+        type=int,
+        default=AUTO_RESOLUTION_CONFIRM_POLLS,
+        help=(
+            "Consecutive threshold polls required before WON/LOST "
+            f"(default {AUTO_RESOLUTION_CONFIRM_POLLS}). Gamma closed can accelerate."
+        ),
+    )
     return parser
 
 
@@ -164,9 +172,7 @@ def auto_main(argv: list[str]) -> int:
     auto_config.poll_interval_seconds = args.poll_interval
     auto_config.won_threshold = args.won_threshold
     auto_config.lost_threshold = args.lost_threshold
-
-    paper = _resolve_paper_mode(args, auto_config)
-    notifier = TelegramNotifier(auto_config.telegram_bot_token, auto_config.telegram_chat_id)
+    auto_config.resolution_confirm_polls = max(1, args.confirm_polls)
 
     if args.check:
         return _run_wallet_check(auto_config)
@@ -174,13 +180,20 @@ def auto_main(argv: list[str]) -> int:
     if args.list:
         return _run_list_parlays()
 
+    notifier = TelegramNotifier(auto_config.telegram_bot_token, auto_config.telegram_chat_id)
+
     if args.resume is not None:
         parlay = _load_resume_target(args.resume)
         if parlay is None:
             return 1
-        print(f"Resuming parlay {parlay.id} (status={parlay.status}).")
+        paper = _resolve_resume_mode(args, auto_config, parlay)
+        print(
+            f"Resuming parlay {parlay.id} (status={parlay.status}, "
+            f"mode={parlay.execution_mode})."
+        )
     else:
-        parlay = _select_and_confirm(args, auto_config)
+        paper = _resolve_paper_mode(args, auto_config)
+        parlay = _select_and_confirm(args, auto_config, paper=paper)
         if parlay is None:
             return 1
 
@@ -195,18 +208,28 @@ def auto_main(argv: list[str]) -> int:
         polymarket_client,
         won_threshold=auto_config.won_threshold,
         lost_threshold=auto_config.lost_threshold,
+        confirm_polls=auto_config.resolution_confirm_polls,
     )
 
     print(
         f"Starting monitor loop ({'paper' if paper else 'LIVE'} mode, "
-        f"poll every {auto_config.poll_interval_seconds:.0f}s). Ctrl+C to stop; "
+        f"poll every {auto_config.poll_interval_seconds:.0f}s, "
+        f"confirm_polls={auto_config.resolution_confirm_polls}). Ctrl+C to stop; "
         f"re-run with `--resume {parlay.id}` to continue."
     )
     notifier.send(
         f"Auto-hedger started for parlay {parlay.id} "
-        f"({len(parlay.legs)} legs, planned locked="
+        f"({len(parlay.legs)} legs, mode={parlay.execution_mode}, planned locked="
         f"{format_sportsbook_amount(parlay.locked_profit_plan, parlay.usd_cad_rate)})."
     )
+
+    lock = ParlayLock(parlay.id)
+    try:
+        lock.acquire()
+    except RuntimeError as exc:
+        print(str(exc))
+        return 2
+
     try:
         return _run_loop(parlay, executor, watcher, notifier, auto_config)
     except KeyboardInterrupt:
@@ -215,6 +238,8 @@ def auto_main(argv: list[str]) -> int:
             f"`python -m bonusarb auto --resume {parlay.id}` to continue."
         )
         return 130
+    finally:
+        lock.release()
 
 
 def _resolve_paper_mode(args: argparse.Namespace, auto_config: AutoConfig) -> bool:
@@ -229,6 +254,39 @@ def _resolve_paper_mode(args: argparse.Namespace, auto_config: AutoConfig) -> bo
             raise SystemExit(2)
         return False
     return True  # paper is the default
+
+
+def _resolve_resume_mode(
+    args: argparse.Namespace,
+    auto_config: AutoConfig,
+    parlay: ActiveParlay,
+) -> bool:
+    """Resume uses persisted mode unless CLI explicitly overrides (must match)."""
+    persisted_paper = parlay.execution_mode != MODE_LIVE
+
+    if args.live and args.paper:
+        print("Pass either --live or --paper, not both.")
+        raise SystemExit(2)
+
+    if args.live or args.paper:
+        want_paper = not args.live
+        if want_paper != persisted_paper:
+            print(
+                f"Resume mode mismatch: parlay {parlay.id} was saved as "
+                f"{parlay.execution_mode!r}, but CLI requested "
+                f"{'paper' if want_paper else 'live'!r}. "
+                f"Re-run without --live/--paper to use the saved mode, or start a new parlay."
+            )
+            raise SystemExit(2)
+
+    if not persisted_paper and not auto_config.live_enabled:
+        print(
+            f"Parlay {parlay.id} is live mode but POLYMARKET_PRIVATE_KEY / "
+            "POLYMARKET_FUNDER_ADDRESS are missing from .env."
+        )
+        raise SystemExit(2)
+
+    return persisted_paper
 
 
 def _run_wallet_check(auto_config: AutoConfig) -> int:
@@ -274,7 +332,8 @@ def _run_list_parlays() -> int:
         placed = len(parlay.placed_legs())
         total = len(parlay.legs)
         print(
-            f"  {parlay.id}  status={parlay.status}  legs={placed}/{total} placed  "
+            f"  {parlay.id}  status={parlay.status}  mode={parlay.execution_mode}  "
+            f"legs={placed}/{total} placed  "
             f"sport={parlay.sport_key}  stake={parlay.stake:.2f}"
         )
     print("\nResume a specific one with: python -m bonusarb auto --resume <PARLAY_ID>")
@@ -298,7 +357,12 @@ def _load_resume_target(resume_arg: str) -> ActiveParlay | None:
     return load_parlay(path)
 
 
-def _select_and_confirm(args: argparse.Namespace, auto_config: AutoConfig) -> ActiveParlay | None:
+def _select_and_confirm(
+    args: argparse.Namespace,
+    auto_config: AutoConfig,
+    *,
+    paper: bool,
+) -> ActiveParlay | None:
     use_interactive = _should_use_interactive(args)
     cache = OddsCache(ttl_seconds=args.cache_ttl)
     client = OddsApiClient(api_key=args.api_key, cache=cache, dry_run=args.dry_run)
@@ -318,7 +382,15 @@ def _select_and_confirm(args: argparse.Namespace, auto_config: AutoConfig) -> Ac
     if config.dry_run:
         client = OddsApiClient(api_key=config.api_key, cache=cache, dry_run=True)
 
-    plans, warnings = scan_automatable_plans(config, client, cache)
+    # Auto always force-fetches Polymarket CLOB quotes before display (P1).
+    config.recheck = True
+
+    plans, warnings = scan_automatable_plans(
+        config,
+        client,
+        cache,
+        max_slippage=auto_config.max_slippage,
+    )
     token = _token_from_config(config)
     render_automatable(plans, token, client.quota, warnings, cad_rate=config.display_cad_rate)
     if not plans:
@@ -327,17 +399,27 @@ def _select_and_confirm(args: argparse.Namespace, auto_config: AutoConfig) -> Ac
     plan = prompt_pick_plan(plans, cad_rate=config.display_cad_rate)
     if plan is None:
         return None
-    if not confirm_sportsbook_bet_placed(plan, cad_rate=config.display_cad_rate):
-        print("Aborting: sportsbook bet not confirmed placed.")
+    plan = confirm_sportsbook_bet_placed(
+        plan,
+        cad_rate=config.display_cad_rate,
+        sport_key=config.sport_key,
+        min_locked_profit_floor=auto_config.min_locked_profit_floor,
+    )
+    if plan is None:
+        print("Aborting: sportsbook bet not confirmed / slip rejected.")
         return None
 
     parlay = ActiveParlay.from_plan(
         plan,
         sport_key=config.sport_key,
         usd_cad_rate=config.display_cad_rate,
+        execution_mode=MODE_PAPER if paper else MODE_LIVE,
     )
+    parlay.accepted_stake = plan.stake
+    parlay.accepted_boost_pct = plan.token.boost_pct
+    parlay.accepted_combined_odds = plan.combined_odds
     path = parlay.save()
-    print(f"Saved active parlay state to {path}")
+    print(f"Saved active parlay state to {path} (mode={parlay.execution_mode})")
     return parlay
 
 
@@ -348,6 +430,12 @@ def _run_loop(
     notifier: TelegramNotifier,
     auto_config: AutoConfig,
 ) -> int:
+    # Resume may load a paused parlay; arm it so the monitor can attempt continue
+    # (partial-fill legs will re-pause immediately if still under-hedged).
+    if parlay.status == "paused":
+        parlay.status = "active"
+        parlay.save()
+
     while parlay.status == "active":
         parlay = run_monitor(parlay, executor, watcher, notifier, auto_config)
         if parlay.status in {"complete", "paused"}:

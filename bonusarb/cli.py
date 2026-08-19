@@ -101,6 +101,11 @@ def main(argv: list[str] | None = None) -> int:
 
         return auto_main(raw_argv[1:])
 
+    if raw_argv and raw_argv[0] == "arb":
+        from bonusarb.arb_cli import arb_main
+
+        return arb_main(raw_argv[1:])
+
     parser = build_parser()
     args = parser.parse_args(raw_argv)
 

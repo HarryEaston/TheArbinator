@@ -54,6 +54,31 @@ def effective_taker_share_price(
     return price * (1.0 + rate * (1.0 - price))
 
 
+def modeled_taker_fee(
+    shares: float,
+    price: float,
+    *,
+    fee_rate: float | None = None,
+) -> float:
+    """Sports taker fee in quote currency: ``shares × rate × p × (1 − p)``."""
+    if shares <= 0.0 or not 0.0 < price < 1.0:
+        return 0.0
+    rate = POLYMARKET_SPORTS_TAKER_FEE_RATE if fee_rate is None else fee_rate
+    if rate <= 0.0:
+        return 0.0
+    return shares * rate * price * (1.0 - price)
+
+
+def all_in_buy_cost(
+    shares: float,
+    price: float,
+    *,
+    fee_rate: float | None = None,
+) -> float:
+    """Total USD spent to buy ``shares`` at ``price`` including modeled taker fee."""
+    return shares * price + modeled_taker_fee(shares, price, fee_rate=fee_rate)
+
+
 def share_price_to_decimal_odds(
     price: float,
     *,
@@ -61,6 +86,58 @@ def share_price_to_decimal_odds(
 ) -> float:
     """Convert a Polymarket share price (0, 1) to post-fee taker decimal odds."""
     return 1.0 / effective_taker_share_price(price, fee_rate=fee_rate)
+
+
+PRICE_SOURCE_CLOB = "clob"
+PRICE_SOURCE_GAMMA = "gamma_fallback"
+
+
+@dataclass(frozen=True)
+class BookLevel:
+    price: float
+    size: float
+
+
+@dataclass(frozen=True)
+class BuyVwapResult:
+    """Executable buy VWAP for a target share size within a max price."""
+
+    vwap: float
+    worst_price: float
+    filled_shares: float
+    notional: float
+
+
+def executable_buy_vwap(
+    asks: list[BookLevel],
+    shares: float,
+    *,
+    max_price: float,
+) -> BuyVwapResult | None:
+    """Walk asks (best first) and return VWAP if ``shares`` fill at or below ``max_price``."""
+    if shares <= 0.0 or max_price <= 0.0:
+        return None
+    remaining = shares
+    notional = 0.0
+    worst = 0.0
+    for level in asks:
+        if level.size <= 0.0 or level.price <= 0.0:
+            continue
+        if level.price > max_price + 1e-12:
+            break
+        take = min(remaining, level.size)
+        notional += take * level.price
+        remaining -= take
+        worst = level.price
+        if remaining <= 1e-9:
+            filled = shares - max(remaining, 0.0)
+            return BuyVwapResult(
+                vwap=notional / filled,
+                worst_price=worst,
+                filled_shares=filled,
+                notional=notional,
+            )
+    return None
 
 
 def _market_volume_usd(market: dict[str, Any]) -> float:
@@ -114,6 +191,8 @@ class PolymarketOutcomeOdds:
     decimal_odds: float
     token_id: str
     point: float | None = None
+    # ``clob`` = live CLOB top-of-book; ``gamma_fallback`` = indicative only.
+    price_source: str = PRICE_SOURCE_CLOB
 
 
 @dataclass(frozen=True)
@@ -263,9 +342,12 @@ class PolymarketClient:
         if len(outcomes) != 2 or len(clob_token_ids) != 2:
             return None
 
-        prices = self._resolve_prices(market, clob_token_ids, allow_fetch=allow_fetch, force_fetch=force_fetch)
-        if prices is None:
+        resolved_prices = self._resolve_prices(
+            market, clob_token_ids, allow_fetch=allow_fetch, force_fetch=force_fetch
+        )
+        if resolved_prices is None:
             return None
+        prices, _price_source = resolved_prices
 
         outcome_prices = dict(zip(outcomes, prices))
         team_labelled: list[tuple[str, float, str]] = []
@@ -437,9 +519,12 @@ class PolymarketClient:
         if set(outcomes) != teams:
             return None
 
-        prices = self._resolve_prices(market, clob_token_ids, allow_fetch=allow_fetch, force_fetch=force_fetch)
-        if prices is None:
+        resolved_prices = self._resolve_prices(
+            market, clob_token_ids, allow_fetch=allow_fetch, force_fetch=force_fetch
+        )
+        if resolved_prices is None:
             return None
+        prices, price_source = resolved_prices
 
         resolved: list[PolymarketOutcomeOdds] = []
         for name, price, token_id in zip(outcomes, prices, clob_token_ids):
@@ -450,6 +535,7 @@ class PolymarketClient:
                     name=name,
                     decimal_odds=share_price_to_decimal_odds(price),
                     token_id=token_id,
+                    price_source=price_source,
                 )
             )
         return tuple(resolved)
@@ -478,9 +564,12 @@ class PolymarketClient:
         if set(outcomes) != teams:
             return
 
-        prices = self._resolve_prices(market, clob_token_ids, allow_fetch=allow_fetch, force_fetch=force_fetch)
-        if prices is None:
+        resolved_prices = self._resolve_prices(
+            market, clob_token_ids, allow_fetch=allow_fetch, force_fetch=force_fetch
+        )
+        if resolved_prices is None:
             return
+        prices, price_source = resolved_prices
 
         anchor_team = _spread_team_from_title(market.get("groupItemTitle"))
         if anchor_team not in teams:
@@ -508,6 +597,7 @@ class PolymarketClient:
                 decimal_odds=share_price_to_decimal_odds(price),
                 token_id=token_id,
                 point=point,
+                price_source=price_source,
             )
             existing = spread_sides.get(key)
             if existing is None or candidate.decimal_odds > existing.decimal_odds:
@@ -536,9 +626,12 @@ class PolymarketClient:
         if set(outcomes) != {"Over", "Under"}:
             return
 
-        prices = self._resolve_prices(market, clob_token_ids, allow_fetch=allow_fetch, force_fetch=force_fetch)
-        if prices is None:
+        resolved_prices = self._resolve_prices(
+            market, clob_token_ids, allow_fetch=allow_fetch, force_fetch=force_fetch
+        )
+        if resolved_prices is None:
             return
+        prices, price_source = resolved_prices
 
         price_by_name = dict(zip(outcomes, prices))
         token_by_name = dict(zip(outcomes, clob_token_ids))
@@ -553,6 +646,7 @@ class PolymarketClient:
                 decimal_odds=share_price_to_decimal_odds(price),
                 token_id=token_id,
                 point=total_line,
+                price_source=price_source,
             )
             existing = total_sides.get(key)
             if existing is None or candidate.decimal_odds > existing.decimal_odds:
@@ -565,17 +659,165 @@ class PolymarketClient:
         *,
         allow_fetch: bool,
         force_fetch: bool = False,
-    ) -> list[float] | None:
+    ) -> tuple[list[float], str] | None:
+        """Return ``(prices, source)`` where source is ``clob`` or ``gamma_fallback``."""
         live = self._live_prices(clob_token_ids, allow_fetch=allow_fetch, force_fetch=force_fetch)
         if live is not None:
-            return live
+            return live, PRICE_SOURCE_CLOB
         outcome_prices = _parse_stringified_array(market.get("outcomePrices"))
         if len(outcome_prices) != len(clob_token_ids):
             return None
         try:
-            return [float(p) for p in outcome_prices]
+            return [float(p) for p in outcome_prices], PRICE_SOURCE_GAMMA
         except (TypeError, ValueError):
             return None
+
+    def get_order_book(
+        self,
+        token_id: str,
+        *,
+        allow_fetch: bool = True,
+        force_fetch: bool = True,
+    ) -> list[BookLevel]:
+        """Fetch CLOB asks for a token (best price first). Empty on failure."""
+        cache_key = f"book:{token_id}"
+        raw = self._request(
+            "book",
+            cache_key,
+            base_url=POLYMARKET_CLOB_BASE_URL,
+            path="/book",
+            params={"token_id": token_id},
+            allow_fetch=allow_fetch,
+            force_fetch=force_fetch,
+            optional=True,
+        )
+        if not raw or not isinstance(raw, dict):
+            return []
+        asks_raw = raw.get("asks") or []
+        levels: list[BookLevel] = []
+        for entry in asks_raw:
+            try:
+                if isinstance(entry, dict):
+                    price = float(entry.get("price"))
+                    size = float(entry.get("size"))
+                elif isinstance(entry, (list, tuple)) and len(entry) >= 2:
+                    price = float(entry[0])
+                    size = float(entry[1])
+                else:
+                    continue
+            except (TypeError, ValueError):
+                continue
+            if price > 0.0 and size > 0.0:
+                levels.append(BookLevel(price=price, size=size))
+        levels.sort(key=lambda level: level.price)
+        return levels
+
+    def executable_buy_for_shares(
+        self,
+        token_id: str,
+        shares: float,
+        *,
+        max_slippage: float,
+        allow_fetch: bool = True,
+        force_fetch: bool = True,
+    ) -> BuyVwapResult | None:
+        """VWAP to buy ``shares`` within top-of-book * (1 + slippage), or None."""
+        tob = self.get_token_price(
+            token_id, side="BUY", allow_fetch=allow_fetch, force_fetch=force_fetch
+        )
+        if tob is None or not 0.0 < tob < 1.0:
+            return None
+        max_price = min(tob * (1.0 + max(max_slippage, 0.0)), 0.999)
+        asks = self.get_order_book(
+            token_id, allow_fetch=allow_fetch, force_fetch=force_fetch
+        )
+        if not asks:
+            # No book: treat top-of-book as a single infinite level only for tiny
+            # paper/tests; still require the quote itself.
+            asks = [BookLevel(price=tob, size=shares)]
+        return executable_buy_vwap(asks, shares, max_price=max_price)
+
+    def get_token_resolution(
+        self,
+        token_id: str,
+        *,
+        event_slug: str | None = None,
+        allow_fetch: bool = True,
+        force_fetch: bool = True,
+    ) -> str | None:
+        """Return ``won`` / ``lost`` / ``None`` from Gamma when the market is closed.
+
+        ``won`` means the *hedge* token lost (price ~0) so the sportsbook leg won.
+        ``lost`` means the hedge token won (price ~1) so the sportsbook leg lost.
+        Returns ``None`` when the market is still open or resolution is unclear —
+        callers must keep using CLOB price thresholds in that case.
+        """
+        market = self._fetch_market_for_token(
+            token_id,
+            event_slug=event_slug,
+            allow_fetch=allow_fetch,
+            force_fetch=force_fetch,
+        )
+        if market is None or not market.get("closed"):
+            return None
+
+        outcomes = _parse_stringified_array(market.get("outcomes"))
+        clob_token_ids = [str(t) for t in _parse_stringified_array(market.get("clobTokenIds"))]
+        if token_id not in clob_token_ids or len(outcomes) != len(clob_token_ids):
+            return None
+
+        idx = clob_token_ids.index(token_id)
+        prices = _parse_stringified_array(market.get("outcomePrices"))
+        if len(prices) != len(clob_token_ids):
+            return None
+        try:
+            price = float(prices[idx])
+        except (TypeError, ValueError):
+            return None
+
+        # Finalized winning outcomes pin near 1.0; losers near 0.0.
+        if price >= 0.95:
+            return "lost"  # hedge token won => sportsbook selection lost
+        if price <= 0.05:
+            return "won"  # hedge token lost => sportsbook selection won
+        return None
+
+    def _fetch_market_for_token(
+        self,
+        token_id: str,
+        *,
+        event_slug: str | None,
+        allow_fetch: bool,
+        force_fetch: bool,
+    ) -> dict[str, Any] | None:
+        cache_key = f"token_market:{token_id}"
+        raw = self._request(
+            "markets",
+            cache_key,
+            path="/markets",
+            params={"clob_token_ids": token_id},
+            allow_fetch=allow_fetch,
+            force_fetch=force_fetch,
+            optional=True,
+        )
+        if isinstance(raw, list) and raw:
+            return raw[0] if isinstance(raw[0], dict) else None
+        if isinstance(raw, dict):
+            return raw
+
+        # Fallback: scan sibling markets on the known event slug.
+        if not event_slug:
+            return None
+        event = self._fetch_event_by_slug(
+            event_slug, allow_fetch=allow_fetch, force_fetch=force_fetch
+        )
+        if event is None:
+            return None
+        for market in event.get("markets") or []:
+            ids = [str(t) for t in _parse_stringified_array(market.get("clobTokenIds"))]
+            if token_id in ids:
+                return market
+        return None
 
     def get_token_price(
         self,

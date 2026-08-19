@@ -96,6 +96,7 @@ def merge_polymarket_odds(
                         price=outcome.decimal_odds,
                         point=outcome.point,
                         token_id=outcome.token_id,
+                        price_source=outcome.price_source,
                     )
                     for outcome in outcomes
                 ),
@@ -124,8 +125,9 @@ def merge_polymarket_odds(
 
     if any(POLYMARKET_BOOK_KEY in g.bookmakers for g in merged_games):
         warnings.append(
-            "Polymarket hedge odds are post–sports-taker-fee (top-of-book) and may "
-            "have limited liquidity; verify fill depth and slippage before placing hedges."
+            "Polymarket hedge odds are post–sports-taker-fee. Actionable plans "
+            "require a live CLOB quote and executable order-book depth; Gamma "
+            "fallback prices are display-only / non-automatable."
         )
     if unverified_used:
         warnings.append(

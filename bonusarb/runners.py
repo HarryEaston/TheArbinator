@@ -483,16 +483,307 @@ def add_stake_currency_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
+@dataclass
+class ArbRunConfig:
+    """Config for the general 1-leg all-pairs arb scanner."""
+
+    sport_keys: tuple[str, ...]
+    capital: float
+    market: str
+    top: int
+    dry_run: bool
+    no_fetch: bool
+    recheck: bool
+    cache_ttl: int
+    api_key: str
+    display_cad_rate: float | None = None
+
+
+def _league_display_name(sport_key: str) -> str:
+    for key, name in LEAGUES:
+        if key == sport_key:
+            return name
+    return sport_key
+
+
+def _scan_league_games(
+    sport_key: str,
+    config: ArbRunConfig,
+    client: OddsApiClient,
+    cache: OddsCache,
+    warnings: list[str],
+) -> tuple[list, dict[str, str]]:
+    """Fetch + merge one league; return (games, slug_by_game_id)."""
+    market = config.market or DEFAULT_SCAN_MARKETS
+    label = _league_display_name(sport_key)
+    print(f"Scanning {label} ({sport_key})...")
+
+    games = client.get_odds(
+        sport_key,
+        markets=market,
+        bookmakers=DEFAULT_BOOKMAKERS,
+        allow_fetch=not config.no_fetch,
+        force_fetch=config.recheck,
+    )
+    if not games:
+        warnings.append(f"{label}: no games with sportsbook odds were returned.")
+        return [], {}
+
+    games, started_count = filter_upcoming_games(games)
+    if started_count:
+        warnings.append(
+            f"{label}: excluded {started_count} game(s) that have already started."
+        )
+    if not games:
+        warnings.append(f"{label}: no upcoming games with sportsbook odds.")
+        return [], {}
+
+    polymarket_client = PolymarketClient(cache=cache, dry_run=config.dry_run)
+    discovered, discovery_warnings = discover_event_mappings(
+        sport_key,
+        games,
+        polymarket_client,
+        allow_fetch=not config.no_fetch,
+        force_fetch=config.recheck,
+    )
+    warnings.extend(f"{label}: {w}" if not w.startswith(label) else w for w in discovery_warnings)
+    games, polymarket_warnings = merge_polymarket_odds(
+        games,
+        discovered,
+        polymarket_client,
+        allow_fetch=not config.no_fetch,
+        force_fetch=config.recheck,
+    )
+    warnings.extend(f"{label}: {w}" if not str(w).startswith(label) else w for w in polymarket_warnings)
+
+    slug_by_game_id: dict[str, str] = {}
+    for mapping in discovered:
+        for game in games:
+            if {game.home_team, game.away_team} == {mapping.home_team, mapping.away_team}:
+                slug_by_game_id[game.id] = mapping.polymarket_event_slug
+    return games, slug_by_game_id
+
+
+def scan_two_way_arbs(
+    config: ArbRunConfig,
+    client: OddsApiClient,
+    cache: OddsCache,
+) -> tuple[list, list[str]]:
+    """Multi-league all-pairs 1-leg arb scan. Returns ``(arbs, warnings)``."""
+    from bonusarb.arb.general import find_two_way_arbs
+    from bonusarb.models import TwoWayArb
+
+    market = config.market or DEFAULT_SCAN_MARKETS
+    leagues = config.sport_keys
+    estimated_cost = 0
+    if not config.dry_run and not config.no_fetch:
+        estimated_cost = client.estimated_request_cost(market) * len(leagues)
+
+    warnings: list[str] = []
+    if "spreads" in market or "totals" in market:
+        warnings.append(
+            "Spreads/totals use exact opposite-line hedges only. "
+            "Whole-number lines are excluded to avoid push risk."
+        )
+    if estimated_cost > 1:
+        warnings.append(
+            f"This multi-league scan is estimated to cost ~{estimated_cost} API credits."
+        )
+    if config.dry_run:
+        warnings.append("Dry-run mode uses bundled sample odds when available.")
+    warnings.append("Place both sides now. Verify odds manually before betting.")
+
+    if (
+        not config.dry_run
+        and not config.no_fetch
+        and client.quota.remaining is not None
+    ):
+        remaining_after = client.quota.remaining - estimated_cost
+        if remaining_after < DEFAULT_CREDIT_WARN_THRESHOLD:
+            warnings.append(
+                f"After this request (~{estimated_cost} credits) you would have "
+                f"~{max(remaining_after, 0)} credits left, below the warning "
+                f"threshold ({DEFAULT_CREDIT_WARN_THRESHOLD})."
+            )
+        if client.would_exceed(estimated_cost):
+            print(
+                f"Refusing to fetch: estimated cost {estimated_cost} credits exceeds "
+                f"the {client.quota.remaining} credits remaining on your API key. "
+                "Use --no-fetch, --dry-run, or wait for your quota to reset."
+            )
+            return [], warnings
+
+    if warnings and not config.dry_run and not config.no_fetch:
+        for warning in warnings:
+            print(f"Warning: {warning}")
+
+    all_arbs: list[TwoWayArb] = []
+    for sport_key in leagues:
+        games, slug_by_game_id = _scan_league_games(
+            sport_key, config, client, cache, warnings
+        )
+        if not games:
+            continue
+        all_arbs.extend(
+            find_two_way_arbs(
+                games,
+                capital=config.capital,
+                market_key=market,
+                slug_by_game_id=slug_by_game_id,
+            )
+        )
+
+    all_arbs.sort(key=lambda arb: arb.roi, reverse=True)
+    return all_arbs[: config.top], warnings
+
+
+def apply_cad_capital(
+    args: argparse.Namespace,
+    capital: float,
+) -> tuple[float, float | None]:
+    """Keep capital in the user's stake currency; attach FX rate for Polymarket display.
+
+    Natural sportsbook stakes (35/65, etc.) are sized in the same units the user
+    entered (CAD by default). Polymarket stakes are converted to USD only when
+    reporting the amount to place on the CLOB.
+    """
+    rate = resolve_display_cad_rate(args)
+    if rate is None:
+        return capital, None
+    print(
+        f"FX: 1 USD = {rate:.4f} CAD  "
+        f"(capital {capital:.2f} CAD; Polymarket stakes shown in USD)"
+    )
+    return capital, rate
+
+
+def collect_arb_interactive_config(
+    args: argparse.Namespace,
+    client: OddsApiClient,
+) -> ArbRunConfig:
+    from bonusarb.config import ARB_LEAGUES, DEFAULT_ARB_CAPITAL, DEFAULT_ARB_TOP
+
+    step = 1
+    if args.dry_run or args.no_fetch:
+        dry_run, no_fetch = args.dry_run, args.no_fetch
+        print(f"(Step {step} skipped: using CLI flags for data source)")
+        step += 1
+    else:
+        dry_run, no_fetch = prompt_data_source(step, 0, args.dry_run, args.no_fetch)
+        step += 1
+
+    if dry_run:
+        client = OddsApiClient(api_key=args.api_key, cache=client.cache, dry_run=True)
+
+    if getattr(args, "sport", None):
+        sport_keys = (args.sport,)
+        print(f"(Step {step} skipped: using --sport {args.sport})")
+        step += 1
+    else:
+        sport_keys = tuple(key for key, _ in ARB_LEAGUES)
+        print(
+            f"(Step {step}: scanning all arb leagues: "
+            + ", ".join(name for _, name in ARB_LEAGUES)
+            + ")"
+        )
+        step += 1
+
+    if args.capital is not None:
+        capital = args.capital
+        stake_ccy = "CAD" if getattr(args, "cad", True) else "USD"
+        print(f"(Step {step} skipped: using --capital {capital:.2f} {stake_ccy})")
+        step += 1
+    else:
+        stake_label = (
+            "Total capital to split across both sides (CAD $)?"
+            if getattr(args, "cad", True)
+            else "Total capital to split across both sides (USD $)?"
+        )
+        capital = prompt_float_step(
+            step,
+            0,
+            stake_label,
+            minimum=1.0,
+            default=DEFAULT_ARB_CAPITAL,
+        )
+        step += 1
+
+    market = args.market or DEFAULT_SCAN_MARKETS
+    capital, display_cad_rate = apply_cad_capital(args, capital)
+    top = args.top if args.top is not None else DEFAULT_ARB_TOP
+
+    print()
+    print("Configuration complete. Searching for 1-leg arbitrage...")
+    print()
+
+    return ArbRunConfig(
+        sport_keys=sport_keys,
+        capital=capital,
+        market=market,
+        top=top,
+        dry_run=dry_run,
+        no_fetch=no_fetch,
+        recheck=args.recheck,
+        cache_ttl=args.cache_ttl,
+        api_key=args.api_key,
+        display_cad_rate=display_cad_rate,
+    )
+
+
+def arb_config_from_args(args: argparse.Namespace) -> ArbRunConfig:
+    from bonusarb.config import ARB_LEAGUES, DEFAULT_ARB_CAPITAL, DEFAULT_ARB_TOP
+
+    if args.sport:
+        sport_keys = (args.sport,)
+    else:
+        sport_keys = tuple(key for key, _ in ARB_LEAGUES)
+    capital = args.capital if args.capital is not None else DEFAULT_ARB_CAPITAL
+    capital, display_cad_rate = apply_cad_capital(args, capital)
+    return ArbRunConfig(
+        sport_keys=sport_keys,
+        capital=capital,
+        market=args.market or DEFAULT_SCAN_MARKETS,
+        top=args.top if args.top is not None else DEFAULT_ARB_TOP,
+        dry_run=args.dry_run,
+        no_fetch=args.no_fetch,
+        recheck=args.recheck,
+        cache_ttl=args.cache_ttl,
+        api_key=args.api_key,
+        display_cad_rate=display_cad_rate,
+    )
+
+
+def run_arb(config: ArbRunConfig, client: OddsApiClient, cache: OddsCache) -> int:
+    from bonusarb.report import render_arb_report
+
+    arbs, warnings = scan_two_way_arbs(config, client, cache)
+    render_arb_report(
+        arbs,
+        client.quota,
+        capital=config.capital,
+        sport_keys=config.sport_keys,
+        warnings=warnings,
+        cad_rate=config.display_cad_rate,
+    )
+    return 0 if arbs else 1
+
+
 # Re-export for callers that imported these names from the old cli module.
 __all__ = [
     "RunConfig",
+    "ArbRunConfig",
     "run_auto",
+    "run_arb",
     "scan_plans",
+    "scan_two_way_arbs",
     "collect_interactive_config",
+    "collect_arb_interactive_config",
     "config_from_args",
+    "arb_config_from_args",
     "missing_batch_fields",
     "resolve_display_cad_rate",
     "apply_cad_stakes",
+    "apply_cad_capital",
     "add_stake_currency_args",
     "DEFAULT_LEG_COUNT",
     "MIN_LEG_COUNT",

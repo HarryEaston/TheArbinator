@@ -14,29 +14,23 @@ def _polymarket_hedge_token_id(
     market_key: str,
     hedge_name: str,
     hedge_point: float | None,
-) -> str | None:
-    """Return the CLOB token id for a Polymarket hedge outcome, if present.
-
-    The synthetic "polymarket" bookmaker carries ``token_id`` on each outcome
-    (populated by ``merge_polymarket_odds``). We match by outcome name and, for
-    spreads/totals, by exact line so the auto-hedger can place/watch the right
-    market without re-discovering it.
-    """
+) -> tuple[str | None, str | None]:
+    """Return ``(token_id, price_source)`` for a Polymarket hedge outcome."""
     bookmaker = game.bookmakers.get(POLYMARKET_BOOK)
     if not bookmaker:
-        return None
+        return None, None
     market = bookmaker.markets.get(market_key)
     if not market:
-        return None
+        return None, None
     for outcome in market.outcomes:
         if outcome.name != hedge_name:
             continue
         if hedge_point is None:
-            return outcome.token_id
+            return outcome.token_id, outcome.price_source
         if outcome.point is None or abs(outcome.point - hedge_point) > 0.001:
             continue
-        return outcome.token_id
-    return None
+        return outcome.token_id, outcome.price_source
+    return None, None
 
 
 def american_to_decimal(american: float) -> float:
@@ -309,6 +303,7 @@ def _make_leg(
     *,
     polymarket_event_slug: str | None = None,
     hedge_token_id: str | None = None,
+    hedge_price_source: str | None = None,
 ) -> Leg:
     return Leg(
         game_id=game.id,
@@ -325,6 +320,7 @@ def _make_leg(
         hedge_point=hedge_point,
         polymarket_event_slug=polymarket_event_slug,
         hedge_token_id=hedge_token_id,
+        hedge_price_source=hedge_price_source,
     )
 
 
@@ -335,12 +331,14 @@ def _polymarket_context(
     opposite_selection: str,
     hedge_point: float | None,
     slug_by_game_id: dict[str, str],
-) -> tuple[str | None, str | None]:
-    """Resolve (event_slug, hedge_token_id) when the hedge is on Polymarket."""
+) -> tuple[str | None, str | None, str | None]:
+    """Resolve (event_slug, hedge_token_id, price_source) when hedge is Polymarket."""
     if hedge_book != POLYMARKET_BOOK:
-        return None, None
-    token_id = _polymarket_hedge_token_id(game, market_key, opposite_selection, hedge_point)
-    return slug_by_game_id.get(game.id), token_id
+        return None, None, None
+    token_id, price_source = _polymarket_hedge_token_id(
+        game, market_key, opposite_selection, hedge_point
+    )
+    return slug_by_game_id.get(game.id), token_id, price_source
 
 
 def _token_odds_for_binary_team_selection(
@@ -390,7 +388,7 @@ def build_h2h_leg(
     if opposite is None:
         return None
 
-    slug, token_id = _polymarket_context(
+    slug, token_id, price_source = _polymarket_context(
         game, "h2h", hedge_book, opposite, None, slug_by_game_id or {}
     )
     return _make_leg(
@@ -404,6 +402,7 @@ def build_h2h_leg(
         hedge_odds,
         polymarket_event_slug=slug,
         hedge_token_id=token_id,
+        hedge_price_source=price_source,
     )
 
 
@@ -434,7 +433,7 @@ def build_to_advance_leg(
         return None
 
     # The hedge is resolved on the same binary market the token side uses.
-    slug, token_id = _polymarket_context(
+    slug, token_id, price_source = _polymarket_context(
         game, token_market_key, hedge_book, opposite, None, slug_by_game_id or {}
     )
     return _make_leg(
@@ -448,6 +447,7 @@ def build_to_advance_leg(
         hedge_odds,
         polymarket_event_slug=slug,
         hedge_token_id=token_id,
+        hedge_price_source=price_source,
     )
 
 
@@ -472,7 +472,7 @@ def build_spread_leg(
     if opposite is None:
         return None
 
-    slug, token_id = _polymarket_context(
+    slug, token_id, price_source = _polymarket_context(
         game, "spreads", hedge_book, opposite, hedge_outcome.point, slug_by_game_id or {}
     )
     return _make_leg(
@@ -488,6 +488,7 @@ def build_spread_leg(
         hedge_point=hedge_outcome.point,
         polymarket_event_slug=slug,
         hedge_token_id=token_id,
+        hedge_price_source=price_source,
     )
 
 
@@ -512,7 +513,7 @@ def build_total_leg(
     hedge_book, hedge_outcome = hedge
     hedge_name = "Under" if token_outcome.name == "Over" else "Over"
 
-    slug, token_id = _polymarket_context(
+    slug, token_id, price_source = _polymarket_context(
         game, "totals", hedge_book, hedge_name, hedge_outcome.point, slug_by_game_id or {}
     )
     return _make_leg(
@@ -528,6 +529,7 @@ def build_total_leg(
         hedge_point=hedge_outcome.point,
         polymarket_event_slug=slug,
         hedge_token_id=token_id,
+        hedge_price_source=price_source,
     )
 
 

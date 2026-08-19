@@ -54,6 +54,7 @@ def solve_sequential_hedge(
                 market_key=leg.market_key,
                 polymarket_event_slug=leg.polymarket_event_slug,
                 hedge_token_id=leg.hedge_token_id,
+                hedge_price_source=leg.hedge_price_source,
             )
         )
 

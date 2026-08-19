@@ -59,6 +59,10 @@ AUTO_LOST_THRESHOLD = float(
 )
 AUTO_MIN_ORDER_SHARES = float(os.getenv("AUTO_MIN_ORDER_SHARES", "5"))
 AUTO_ORDER_FILL_SECONDS = int(os.getenv("AUTO_ORDER_FILL_SECONDS", "30"))
+# Consecutive threshold polls required before declaring WON/LOST (price-based).
+# Keeps timely hedges while rejecting single-poll spikes. Gamma closed can
+# accelerate; it is never required before acting.
+AUTO_RESOLUTION_CONFIRM_POLLS = int(os.getenv("AUTO_RESOLUTION_CONFIRM_POLLS", "3"))
 
 # Live CAD/USD rate source for --cad stake conversion (no API key).
 AUTO_FX_SOURCE = os.getenv("AUTO_FX_SOURCE", "https://open.er-api.com/v6/latest/USD")
@@ -91,6 +95,15 @@ LEAGUES: tuple[tuple[str, str], ...] = (
     ("basketball_wnba", "WNBA"),
     ("mma_mixed_martial_arts", "UFC"),
 )
+
+# General 1-leg arb scanner: same board sports as LEAGUES, excluding UFC/MMA
+# (moneyline-only cards; not part of the all-league arb pass).
+ARB_LEAGUES: tuple[tuple[str, str], ...] = tuple(
+    (key, name) for key, name in LEAGUES if key != "mma_mixed_martial_arts"
+)
+
+DEFAULT_ARB_CAPITAL = 100.0
+DEFAULT_ARB_TOP = 10
 
 # Estimated game duration in minutes by sport key prefix. Only the supported
 # leagues are listed; the default fallback covers anything unexpected.

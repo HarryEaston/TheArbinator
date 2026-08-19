@@ -283,7 +283,7 @@ def test_merge_attaches_polymarket_hedge_odds():
     assert "totals" in polymarket.markets
     h2h = polymarket.markets["h2h"]
     assert {o.name for o in h2h.outcomes} == {"Celtics", "Lakers"}
-    assert any("liquidity" in w.lower() for w in warnings)
+    assert any("executable" in w.lower() or "clob" in w.lower() for w in warnings)
     assert any("fee" in w.lower() for w in warnings)
 
 

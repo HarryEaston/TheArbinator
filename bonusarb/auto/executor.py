@@ -24,6 +24,7 @@ from bonusarb.auto.config import AutoConfig
 from bonusarb.auto.state import LegState
 from bonusarb.polymarket.client import (
     PolymarketClient,
+    all_in_buy_cost,
     effective_taker_share_price,
     share_price_to_decimal_odds,
 )
@@ -163,7 +164,8 @@ class ClobOrderApi:
         signed = client.create_order(order_args)
         # FAK (fill-and-kill / IOC) takes what is available at the limit price
         # and cancels the rest, so we never chase the book with a live GTC.
-        resp = client.post_order(signed, order_type=self._OrderType.FAK)
+        # py-clob-client uses the keyword ``orderType`` (not ``order_type``).
+        resp = client.post_order(signed, orderType=self._OrderType.FAK)
         order_id = (
             resp.get("orderID") or resp.get("order_id") or resp.get("id") or ""
             if isinstance(resp, dict)
@@ -242,15 +244,14 @@ class ClobExecutor:
                 reason=f"No live price for token {leg.hedge_token_id}.",
             )
 
+        # Size from top-of-book first, then refine with executable VWAP depth.
         live_odds = share_price_to_decimal_odds(live_price)
-        effective_price = effective_taker_share_price(live_price)
         remaining_odds = list(context.remaining_planned_odds)
         if not remaining_odds:
             return FillResult(
                 FAILED, None, 0.0, 0.0, 0.0, live_price, 0.0, 0.0,
                 reason="No remaining legs to hedge.",
             )
-        # Replace the current (first) leg's planned odds with the live quote.
         remaining_odds[0] = live_odds
 
         locked_profit, stakes = recompute_remaining_hedges(
@@ -270,7 +271,7 @@ class ClobExecutor:
                 ),
             )
 
-        shares = stake_usd / effective_price
+        shares = stake_usd / effective_taker_share_price(live_price)
         if shares < self.config.min_order_shares:
             return FillResult(
                 SKIPPED, None, 0.0, 0.0, 0.0, live_price, stake_usd, locked_profit,
@@ -280,25 +281,87 @@ class ClobExecutor:
                 ),
             )
 
-        limit_price = min(live_price * (1.0 + self.config.max_slippage), 0.999)
+        vwap = self.polymarket_client.executable_buy_for_shares(
+            leg.hedge_token_id,
+            shares,
+            max_slippage=self.config.max_slippage,
+            force_fetch=True,
+        )
+        if vwap is None:
+            return FillResult(
+                SKIPPED, None, 0.0, 0.0, 0.0, live_price, stake_usd, locked_profit,
+                reason=(
+                    f"Insufficient CLOB depth to buy {shares:.2f} shares within "
+                    f"{self.config.max_slippage * 100:.1f}% of top-of-book."
+                ),
+            )
+
+        # Re-size once using VWAP as the executable price.
+        exec_price = vwap.vwap
+        live_odds = share_price_to_decimal_odds(exec_price)
+        remaining_odds[0] = live_odds
+        locked_profit, stakes = recompute_remaining_hedges(
+            stake_cost=context.stake_cost,
+            win_profit=context.win_profit,
+            remaining_hedge_odds=remaining_odds,
+            already_placed_stakes=context.already_placed_stakes,
+        )
+        stake_usd = stakes[0]
+        if locked_profit < self.config.min_locked_profit_floor:
+            return FillResult(
+                SKIPPED, None, 0.0, 0.0, 0.0, exec_price, stake_usd, locked_profit,
+                reason=(
+                    f"Locked profit ${locked_profit:.2f} below floor "
+                    f"${self.config.min_locked_profit_floor:.2f} at VWAP {exec_price:.4f}."
+                ),
+            )
+        shares = stake_usd / effective_taker_share_price(exec_price)
+        if shares < self.config.min_order_shares:
+            return FillResult(
+                SKIPPED, None, 0.0, 0.0, 0.0, exec_price, stake_usd, locked_profit,
+                reason=(
+                    f"Order size {shares:.2f} shares below minimum "
+                    f"{self.config.min_order_shares:.2f}."
+                ),
+            )
+        # Confirm depth still covers the refined size.
+        vwap2 = self.polymarket_client.executable_buy_for_shares(
+            leg.hedge_token_id,
+            shares,
+            max_slippage=self.config.max_slippage,
+            force_fetch=True,
+        )
+        if vwap2 is None:
+            return FillResult(
+                SKIPPED, None, 0.0, 0.0, 0.0, exec_price, stake_usd, locked_profit,
+                reason="Insufficient CLOB depth after VWAP re-size.",
+            )
+        exec_price = vwap2.vwap
+        limit_price = min(max(vwap2.worst_price, exec_price), 0.999)
 
         if self.paper:
+            fill_cost = all_in_buy_cost(shares, exec_price)
+            locked_after = self._locked_after_fill(
+                context, remaining_odds, fill_cost
+            )
             return FillResult(
                 FILLED,
                 order_id=f"paper-{uuid.uuid4().hex[:8]}",
                 filled_shares=shares,
-                filled_price=live_price,
-                filled_cost=shares * live_price,
-                live_price=live_price,
+                filled_price=exec_price,
+                filled_cost=fill_cost,
+                live_price=exec_price,
                 stake_usd=stake_usd,
-                locked_profit_after=locked_profit,
+                locked_profit_after=locked_after,
                 reason="paper fill",
             )
 
-        response = self.order_api.post_marketable_order(leg.hedge_token_id, shares, limit_price)
+        response = self.order_api.post_marketable_order(
+            leg.hedge_token_id, shares, limit_price
+        )
         if not response.order_id:
             return FillResult(
-                FAILED, None, 0.0, 0.0, 0.0, live_price, stake_usd, locked_profit,
+                FAILED, None, 0.0, 0.0, 0.0, exec_price, stake_usd, locked_profit,
                 reason="CLOB rejected the order (no order id returned).",
             )
 
@@ -306,21 +369,40 @@ class ClobExecutor:
         self.order_api.cancel_order(response.order_id)
         if status.filled_shares <= 0.0:
             return FillResult(
-                FAILED, response.order_id, 0.0, 0.0, 0.0, live_price, stake_usd, locked_profit,
+                FAILED, response.order_id, 0.0, 0.0, 0.0, exec_price, stake_usd, locked_profit,
                 reason="Order did not fill.",
             )
+        avg = status.avg_price or exec_price
+        fill_cost = all_in_buy_cost(status.filled_shares, avg)
         fill_status = FILLED if status.filled_shares >= shares - 1e-6 else PARTIAL
+        locked_after = self._locked_after_fill(context, remaining_odds, fill_cost)
         return FillResult(
             fill_status,
             response.order_id,
             status.filled_shares,
-            status.avg_price or live_price,
-            status.filled_shares * (status.avg_price or live_price),
-            live_price,
+            avg,
+            fill_cost,
+            exec_price,
             stake_usd,
-            locked_profit,
+            locked_after,
             reason="partial fill" if fill_status == PARTIAL else None,
         )
+
+    def _locked_after_fill(
+        self,
+        context: HedgeContext,
+        remaining_odds_with_current: list[float],
+        fill_cost: float,
+    ) -> float:
+        """Locked profit after this fill's all-in cost is sunk."""
+        future_odds = list(remaining_odds_with_current[1:])
+        locked, _ = recompute_remaining_hedges(
+            stake_cost=context.stake_cost,
+            win_profit=context.win_profit,
+            remaining_hedge_odds=future_odds,
+            already_placed_stakes=list(context.already_placed_stakes) + [fill_cost],
+        )
+        return locked
 
     def _poll_fill(self, order_id: str) -> OrderStatus:
         deadline = time.time() + max(self.config.order_fill_seconds, 1)

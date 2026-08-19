@@ -1,6 +1,6 @@
 # Bonus Token Arbitrage Finder
 
-A Python terminal tool that finds **profit-boost token** arbitrage opportunities for **NHL, NFL, MLB, NBA, WNBA, and UFC** on FanDuel, DraftKings, BetMGM, and theScore Bet, using [The Odds API](https://the-odds-api.com/) and [Polymarket](https://polymarket.com/). It supports **1-4 leg parlays** and sizes sequential hedges that lock in profit no matter how the legs resolve.
+A Python terminal tool that finds **profit-boost token** arbitrage opportunities for **NHL, NFL, MLB, NBA, WNBA, and UFC** on FanDuel, DraftKings, BetMGM, and theScore Bet, using [The Odds API](https://the-odds-api.com/) and [Polymarket](https://polymarket.com/). It supports **1-4 leg parlays** and sizes sequential hedges that lock in profit no matter how the legs resolve. A separate `arb` subcommand finds **general 1-leg** (no boost) all-pairs arbs across the same sportsbooks plus Polymarket for NHL–WNBA.
 
 You pick a league, the number of legs, your token's sportsbook, the boost percentage, and your max stake. The tool then:
 
@@ -94,6 +94,35 @@ Useful flags:
 - `--usd` (treat `--max-stake` / `--bankroll` as USD; skip FX conversion)
 - `--fx-rate` (manual CAD-per-USD rate; skips live fetch; stakes default to CAD)
 
+## General 1-leg arbitrage (`python -m bonusarb arb`)
+
+Scan **all sportsbooks + Polymarket** for classic 1-leg (two-sided) arbitrage —
+no boost tokens. By default it walks **NHL, NFL, MLB, NBA, and WNBA** in one run
+(UFC is excluded), ranks opportunities by **ROI**, and sizes stakes under a
+fixed total capital (default **$100**).
+
+Sportsbook stakes are rounded to look natural (end in `0`/`5`, or amounts like
+`11`/`22`/`33`) so book-vs-book splits prefer e.g. `35/65` over `42.12/57.88`.
+Polymarket stakes may be fractional.
+
+```bash
+python -m bonusarb arb
+```
+
+Batch dry-run (USD capital, one league):
+
+```bash
+python -m bonusarb arb --batch --dry-run --usd --capital 100 --sport basketball_nba
+```
+
+Useful `arb` flags:
+
+- `--capital` (total to split across both sides; default 100)
+- `--sport` (optional; omit to scan all arb leagues)
+- `--market` (`h2h`, `spreads`, `totals`; default all)
+- `--top` (max opportunities to show; default 10)
+- `--batch`, `--dry-run`, `--no-fetch`, `--recheck`, `--usd`, `--fx-rate`
+
 ## Tests
 
 ```bash
@@ -119,26 +148,29 @@ takes over.
 
 ### Safety model
 
-- **Paper mode is the default.** It simulates fills at the live price and never
-  touches your wallet or the CLOB. Pass `--live` to arm real order placement.
-- **Locked-profit floor.** Before placing each hedge it re-prices at the live
-  CLOB quote and re-sizes the remaining hedges; if the recomputed locked profit
-  falls below `AUTO_MIN_LOCKED_PROFIT_FLOOR` it **pauses and alerts** rather
-  than placing a bad hedge.
-- **Max slippage.** Live orders are marketable limit orders at
-  `live_price * (1 + AUTO_MAX_SLIPPAGE)` (FAK/IOC), so you never chase the book.
-  Partial fills pause and alert.
-- **Never double-places.** State is persisted to `state/parlay_*.json` after
-  every transition with a per-leg order-id ledger, so a crash or Ctrl+C can be
-  resumed with `auto --resume` without re-placing anything.
-- **Multiple parlays at once.** Nothing ties the monitor loop to a single
-  parlay globally — run `auto` again in another terminal to hedge a second
-  (or third) parlay in parallel. Use `auto --list` to see every in-progress
-  parlay's id, and `auto --resume <PARLAY_ID>` to resume a specific one if a
-  terminal closes (plain `--resume` resumes only the most recently created
-  parlay).
-- **Telegram alerts** on every placement, fill, resolution, completion, and
-  pause/error (configure `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`).
+- **Paper mode is the default.** It simulates fills at the live CLOB/VWAP price
+  and never touches your wallet. Pass `--live` to arm real order placement.
+  The chosen mode is saved on the parlay; `auto --resume` defaults to that
+  persisted mode. Passing `--live` or `--paper` that disagrees with the saved
+  mode is refused (exit 2).
+- **Executable quotes only.** Auto force-reprices every candidate from the live
+  CLOB before display. Gamma fallback prices are never treated as actionable.
+  Hedge size uses **order-book VWAP/depth** within `AUTO_MAX_SLIPPAGE`; plans
+  that cannot fill are dropped.
+- **Sportsbook slip reconciliation.** After you pick a plan, auto captures the
+  accepted stake, boost, and combined odds (scanned values are defaults) and
+  rebuilds hedge stakes before placing hedge one.
+- **Locked-profit floor.** Checked at quote time (VWAP) and again after each
+  fill using all-in cost (shares × price + modeled sports taker fee). Below
+  floor → pause/alert.
+- **Partial fills pause.** A partial fill records the order id and shares,
+  sets the parlay to `paused`, and does **not** advance. Top up or reconcile,
+  then `--resume`.
+- **Exactly-once placement.** Atomic state writes, per-parlay lock, pre-submit
+  `placing` intent, resume reconcile via `get_order`.
+- **Settlement exclusions.** Auto excludes NFL/UFC (ties/draws/NC) and non-h2h
+  markets (push/void risk). Manual scan may still show them with warnings.
+- **Telegram alerts** on placement, fill, resolution, completion, and pause.
 
 ### Resolution tracking
 
@@ -146,13 +178,18 @@ It watches each leg by polling the **hedge token's** live CLOB price with
 **asymmetric thresholds** (defaults: `AUTO_LOST_THRESHOLD=0.97`,
 `AUTO_WON_THRESHOLD=0.99`):
 
-- Hedge price **>= 0.97** → leg **lost** (parlay dead, stop)
-- Hedge price **<= 0.01** → leg **won** (parlay alive, place next hedge)
+- Hedge price **>= 0.97** → candidate **lost** (parlay dead, stop)
+- Hedge price **<= 0.01** → candidate **won** (parlay alive, place next hedge)
 
-The won side requires higher certainty before placing the next hedge (reversal
-risk is costly); the lost side can act sooner (a false stop only misses profit).
-This fires **before** official Polymarket settlement so the next hedge is placed
-in time when the next leg is already underway.
+A single extreme quote is not enough: the watcher requires
+`AUTO_RESOLUTION_CONFIRM_POLLS` consecutive agreeing polls (default **3**)
+before declaring WON/LOST. If Gamma reports the market `closed` with a final
+outcome, that can accelerate confirmation without waiting for more polls.
+Until confirmed, the leg stays PENDING — no next hedge and no finalize.
+
+The won side still requires a stricter price threshold (reversal risk is
+costly). Threshold confirmation fires **before** official settlement so the
+next hedge can still be placed when the next leg is already underway.
 
 ### First-run setup
 
@@ -179,7 +216,7 @@ in time when the next leg is already underway.
 - `--list` (list in-progress parlays and their ids, then exit)
 - `--check` (verify wallet + signature setup, then exit)
 - `--profit-floor`, `--slippage`, `--poll-interval`, `--won-threshold`,
-  `--lost-threshold` (override the `AUTO_*` env defaults)
+  `--lost-threshold`, `--confirm-polls` (override the `AUTO_*` env defaults)
 - `--usd`, `--fx-rate` (stakes default to CAD; Polymarket hedges sized in USD/USDC)
 
 ## Notes
@@ -187,8 +224,9 @@ in time when the next leg is already underway.
 - The default `python -m bonusarb` command remains informational only and does not place bets. The `auto` subcommand places real Polymarket orders when run with `--live`.
 - Free-tier Odds API access does not include player props.
 - Spreads and totals can create line mismatch or push risk; the optimizer restricts them to exact opposite-line hedges and excludes whole-number lines.
-- Polymarket is hedge-only in the scan. Auto-hedging only places orders on Polymarket, so `auto` surfaces only parlays whose every hedge is on Polymarket. Auto-discovered mappings are **unverified** — always confirm the Polymarket market settles exactly like your sportsbook bet. Polymarket hedge odds are **post–sports-taker-fee** (top-of-book) and may have limited liquidity.
-- Polymarket markets with less than `POLYMARKET_MIN_VOLUME_USD` (default $10,000) in all-time trading volume are excluded as hedges, checked per-market (moneyline, and each individual spread/total line) rather than per-event, since a game's moneyline can be liquid while its spread/totals lines are not. This filters out markets like a $160-volume moneyline that looks attractive on paper but can't absorb a real hedge stake. Lower this via `.env` if you want to allow thinner markets (at your own risk); a scan warning reports how many markets were skipped.
+- Polymarket is hedge-only in the scan. Auto-hedging only places orders on Polymarket with live CLOB quotes and executable book depth (VWAP within slippage). Gamma fallback prices are display-only / non-automatable. Auto excludes NFL/UFC and non-h2h markets because ties, draws, no-contests, and pushes are not modeled. Auto-discovered mappings are **unverified** — always confirm settlement matches your sportsbook bet.
+- Polymarket markets with less than `POLYMARKET_MIN_VOLUME_USD` (default $10,000) in all-time trading volume are excluded as a coarse prefilter; auto then requires current order-book depth to cover the hedge size.
+- The locked-profit guarantee covers first-loss and all-win paths only. Push, void, draw, tie, and cross-venue rule differences can break it — treat those markets as manual-only.
 - Games that have already started (`commence_time` in the past) are automatically excluded from every scan. This avoids pairing stale pre-game sportsbook odds with live Polymarket prices for in-progress games.
 - Verify token eligibility, odds movement, and local betting rules before placing any wagers.
 - **Ontario / Canada:** [The Odds API](https://the-odds-api.com/) has no Ontario region. This tool requests `fanduel`, `draftkings`, `betmgm`, and `espnbet` (theScore Bet) by bookmaker key. theScore Bet lives in the API's `us2` region but is still fetched in the same request. Lines may differ slightly from what you see in Ontario apps — always confirm odds before betting.
